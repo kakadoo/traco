@@ -4,7 +4,7 @@ package Traco::Tracoprofile;
 # $Id: Holger Glaess $
 use strict;
 use warnings;
-use Data::Dumper;
+#use Data::Dumper;
 use English '-no_match_vars';
 use Carp;
 use feature qw/switch/;
@@ -25,13 +25,13 @@ use constant { VIERACHTNULL => 480, SECHSVIERNULL => 640, };
 # 
 sub new {
 	my ($class,$args) = @_;
-	my $shelf = {};
+	my $self = {};
 	$class = ref($class) || $class;
 	my $d = \$args->{'debug'} ;
-	$shelf->{'debug'} = ${$d};
+	$self->{'debug'} = ${$d};
 	if ( ${$d} ) { print {*STDOUT} "$PROGRAM_NAME | new | uid = $UID\n" or croak $ERRNO; }
-	bless $shelf,$class;
-	return $shelf;
+	bless $self,$class;
+	return $self;
 } # end sub new
 
 my $profile = {
@@ -119,13 +119,13 @@ $profile->{'default'}->{'profiles'} = 'SD HD smallHD PAL TRANSFORMER';
 
 
 sub getprofile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $p = \$args->{'profile'};
 my $dbg = \$args->{'debug'};
 return ($profile->{${$p}});
 }
 sub prepareprofile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $proccessvideodir = \$args->{'file'};
 my $defaultprofile = \ $args->{'profile'};
 my $hb_bin = \$args->{'hb_bin'};
@@ -133,13 +133,13 @@ my $nice = \$args->{'nice'};
 my $setcpu = \$args->{'setcpu'};
 my $config = \$args->{'config'};
 my $dbg=\$args->{'debug'};
-$shelf->message ({msg=>'read and prepare profile for transcode process',v=>'vvv',});
-my $default = \$shelf->getprofile({profile=>${$defaultprofile},});
+$self->message ({msg=>'read and prepare profile for transcode process',v=>'vvv',});
+my $default = \$self->getprofile({profile=>${$defaultprofile},});
 
 # get profile defaults
-my $profiledefaults = \$shelf->getprofile({profile=>'default',});
+my $profiledefaults = \$self->getprofile({profile=>'default',});
 
-my $xmlprofile = \$shelf->getfromxml({file=>"${$proccessvideodir}/vdrtranscode.xml",
+my $xmlprofile = \$self->getfromxml({file=>"${$proccessvideodir}/vdrtranscode.xml",
 				field=>'ALL',
 				debug=>${$dbg},
 				});
@@ -202,7 +202,7 @@ if ( ${$xmlprofile}->{'quality'} ) {
     }
     when ( /^(?:LQ|MQ|HQ)$/smx ) {
       if ( ( ${$config}->{'recalculate_bitrate'} ) and ( ${$xmlprofile}->{'pixel'} ) and ( ${$xmlprofile}->{'ypixel'} ) ) {
-	my $bitrate = \$shelf->_calculate_bitrate({ x=>${$xmlprofile}->{'pixel'},
+	my $bitrate = \$self->_calculate_bitrate({ x=>${$xmlprofile}->{'pixel'},
 						    y=>${$xmlprofile}->{'ypixel'},
 						    q=>${$xmlprofile}->{'quality'},
 						    debug=>${$dbg},});
@@ -245,7 +245,7 @@ if ( ${$config}->{'anamorph_encoding'} ) {
 if ( ${$defaultprofile} !~ /^(?:SD|HD|smallHD)$/smx ) {
 #  $returndb->{'codec'} = ${$xmlprofile}->{'codec'} ;
   $returndb->{'param_anamorph'} = ${$xmlprofile}->{'anamorph'};
-  $shelf->message({msg=>'prepareprofile  use codec and anamorph settings from profile',v=>'v',}) ;
+  $self->message({msg=>'prepareprofile  use codec and anamorph settings from profile',v=>'v',}) ;
 }
 
 if (  ${$xmlprofile}->{'crop'} ) {
@@ -259,12 +259,12 @@ if (  ${$xmlprofile}->{'largefile'} ) {
 return ($returndb);
 }
 sub _calculate_bitrate {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $x = \$args->{'x'};
 my $y = \$args->{'y'};
 my $q = \$args->{'q'};
 my $dbg=\$args->{'debug'};
-$shelf->message ({msg=>'recalulate bitrate by destination resolution',v=>'vvv',});
+$self->message ({msg=>'recalulate bitrate by destination resolution',v=>'vvv',});
 my $bitrate = ${$x} * ${$y} * $profile->{'default'}->{'codec_ratio'}->{'h264'} * $profile->{'default'}->{'quality_ratio'}->{ ${$q} } ;
 $bitrate = sprintf '%.0f', $bitrate;
 

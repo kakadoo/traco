@@ -15,7 +15,10 @@ use Traco::Traco ;
 use feature qw/switch/;
 #use Data::Dumper;
 
-our $VERSION = '0.02';
+our $VERSION = '0.04';
+
+# 0.03 fix delete
+# 0.04 no use of indir form config anymore.
 
 my @options = @ARGV;
 my $z=0;
@@ -23,7 +26,7 @@ my @transcodeoptions = ();
 my $admenv = {};
 $admenv->{'configfile'} = '/etc/vdr/traco.conf'; # set default
 handle_configfile (@options);
-handle_profile_option (@options);
+#handle_profile_option (@options);
 
 while ($#options >= $z) {
   given ($options[$z]) {
@@ -64,6 +67,11 @@ while ($#options >= $z) {
       _myhelp ();
       leave ('_done');
     }
+    when ( /^profile$/smx ) {
+      my $a=$z+1;
+      $admenv->{'profile'} = $options[$a];
+      $z++;
+    }
   } # end given
       $z++;
 } # end while options;
@@ -76,7 +84,7 @@ if ( -e $admenv->{'configfile'} ) {
   print {*STDOUT} "missing configfile exit $PROGRAM_NAME\n" or croak $ERRNO;
   exit 1;
 }
-my $indir = ${$config}->{'Indir'};
+# my $indir = ${$config}->{'Indir'};
 my $profiledefaults=\$traco->getprofile({profile=>'default',});
 
 set_user ();
@@ -84,8 +92,8 @@ set_user ();
 my @tmp = reverse @options;
 my $workdir = $traco->preparepath({path=>$tmp[0],});
 undef @tmp;
-if ( ( not ( defined $workdir ) ) or ($workdir !~ /$indir/smx ) ) {
-  print {*STDOUT} "missing path ! or try --help\n" or croak $ERRNO;
+if ( ( not ( defined $workdir ) ) or ( $#options < 0 ) ) {
+  print {*STDOUT} "missing path ! or options try --help\n" or croak $ERRNO;
   leave ('_error');
 }
 
@@ -108,7 +116,6 @@ if  ( $admenv->{'audiotrack'} ) {
   }
   leave (${$rc}) ;
 }
-
 if  ( $admenv->{'container'} ) {
 my $rc;
   if ( $admenv->{'container'} =~ /^(?:mp4|mkv|m4v)$/smx ) {
@@ -119,8 +126,13 @@ my $rc;
 }
 
 if ( $admenv->{'show'} ) {
-  my $rc = \showxml ({dir=>$workdir,show=>$admenv->{'show'},});
-  print {*STDOUT} "showxml_${$rc}\n" or croak $ERRNO;
+  my $rc;
+  if ( $admenv->{'show'} =~ /^profiles$/smx ) {
+   $rc = \show_profiles();
+  } else {
+   $rc = \showxml ({dir=>$workdir,show=>$admenv->{'show'},});
+   print {*STDOUT} "showxml_${$rc}\n" or croak $ERRNO;
+  }
   leave (${$rc}) ;
 }
 
@@ -130,28 +142,29 @@ if  ( $admenv->{'quality'} ) {
 }
 
 if ( $admenv->{'delete'} ) {
-  my $rc = unlink "$workdir/$admenv->{'delete'}";
-  if ( ${$rc} == 1 )  {
+  if ( unlink "$workdir/$admenv->{'delete'}" ) {
     print {*STDOUT} "delete_$workdir\/$admenv->{'delete'}\n" or croak $ERRNO;
   }
   leave('_done');
 }
-sub handle_profile_option {
-my @opts = @_;
-my @existsprofile = grep { /profile/smx } @opts;
-my @existsshow = grep { /show/smx } @opts;
-if ( $#existsshow >= 0 ) { return ('show_exists'); }
 
-if ( $#existsprofile == 0 ) {
-  for my $o (0 .. $#opts) {
-    if ( $opts[$o] =~ /^profile$/smx ) {
-      my $a = $o+1;
-      $admenv->{'profile'} = $opts[$a];
-    }
-  }
-}
-return ('handle_profile_option_done');
-}
+#sub handle_profile_option {
+#my @opts = @_;
+#my @existsprofile = grep { /profile/smx } @opts;
+#my @existsshow = grep { /show/smx } @opts;
+#if ( $#existsshow >= 0 ) { return ('show_exists'); }
+#
+#if ( $#existsprofile == 0 ) {
+#  for my $o (0 .. $#opts) {
+#    if ( $opts[$o] =~ /^profile$/smx ) {
+#      my $a = $o+1;
+#      $admenv->{'profile'} = $opts[$a];
+#    }
+#  }
+#}
+#return ('handle_profile_option_done');
+#}
+
 sub handle_configfile {
 my @opts = @_;
 my @configfileoption = grep { /[-]c/smx } @opts;
@@ -200,6 +213,15 @@ my $rc = shift;
   } #else { 
 #	exit 1;
 #  }
+return ('leave_done');
+}
+
+sub show_profiles {
+ my @prof = split /\s/smx , ${$profiledefaults}->{'profiles'};
+ for my $p (@prof) {
+  print {*STDOUT} "profile available $p\n" or crok $ERRNO;
+ }
+return ('show_profiles_done');
 }
 
 sub create_new_profile {
@@ -273,7 +295,7 @@ given ($option) {
   #when ( /^show$/smx ) {
   #  $returnline = ${$status};
   #}
-  when ( $value =~ /^(?:ready|online|offline|cutfiles|joinfiles|prepare_traco_ts)$/smx ) {
+  when ( $value =~ qr/^(?:ready|online|offline|cutfiles|joinfiles|prepare_traco_ts)$/smx ) {
     my $rc=\$traco->changexmlfile
       ({file=>"$mypath/vdrtranscode.xml",
 	action=>'change',
@@ -334,7 +356,8 @@ quality
 container 
 	  m4v , mkv , mp4 
 status 
-  offline , online , joinfiles , cutfiles , transcodedone , proccessing , ready
+  offline , online , joinfiles , cutfiles , transcodedone , proccessing , ready , prepare_traco_ts
   /path/film dir
+
 show 
-      status profile
+      status profiles

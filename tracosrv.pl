@@ -20,7 +20,7 @@ use Proc::Daemon 0.11;
 use File::Basename ;
 #use Cwd;
 use Traco::Traco 0.20;
-use Data::Dumper ;
+#use Data::Dumper ;
 
 # now feature from 5.10
 use feature qw/switch/;
@@ -273,6 +273,22 @@ foreach my $st (@videoqueue) {
     # if vdrtranscode is proccessing a transcode , next
     when ( /^proccessing$/smx ) { last; }
     # job have multiple recording files and vdr ( vdrtranscodeadm ) prepare the job
+    when ( /^renameaftertranscode$/smx) {
+      my $renamerc = \$traco->rename_and_store({dir=>$dir,
+						filenameformat=>${$config}->{'filenameformat'},
+						destination=>$tracoenv->{'outdir'},
+						debug=>$tracoenv->{'debug_flag'},
+						});
+      if (${$renamerc} eq '_rename_and_store_done') {
+       $traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
+				     action=>'change',
+				     field=>'status',
+				     to=>'YourPictureIsReadyToView',
+				     debug=>$tracoenv->{'debug_flag'},
+				     });
+      }
+    last;
+    }
     when ( /^joinfiles$/smx ) {
       my $files = \$traco->getfromxml({file=>"$dir/vdrtranscode.xml",
 					      field=>'files',
@@ -304,23 +320,14 @@ foreach my $st (@videoqueue) {
 						nice=>$tracoenv->{'nice'},
 					      });
       $traco->message ({msg=>"${$tracotsrc} in $dir",});
-
-if ( ${$tracotsrc} !~ /done$/smx ) {
+      if ( ${$tracotsrc} !~ /done$/smx ) {
           $traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
                                         action=>'change',
                                         field=>'status',
                                         to=>'offline',
                                         debug=>$tracoenv->{'debug_flag'},
                                       });
-}
-
-
-
-
-
-
-
-
+      }
       last;
     }
     when ( /^cutfiles$/smx ) {
@@ -390,22 +397,6 @@ if ( ${$tracotsrc} !~ /done$/smx ) {
 	_postproccess ({dir=>$dir,debug=>${$config}->{'debug_postproccess'},});
       }
       last;
-    }
-    when ( /^renameaftertranscode$/smx) {
-      my $renamerc = \$traco->rename_and_store({dir=>$dir,
-						filenameformat=>${$config}->{'filenameformat'},
-						destination=>$tracoenv->{'outdir'},
-						debug=>$tracoenv->{'debug_flag'},
-						});
-      if (${$renamerc} eq '_rename_and_store_done') {
-       $traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
-				     action=>'change',
-				     field=>'status',
-				     to=>'YourPictureIsReadyToView',
-				     debug=>$tracoenv->{'debug_flag'},
-				     });
-      }
-    last;
     }
   } # end given $st
 } # end foreach @videoqueue
@@ -565,8 +556,12 @@ if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
 				  });
 }
 
-my $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},});
-
+my $hbrc;
+if ( ${$config}->{'writelog'} ) {
+ $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},writelog=>"$newdir/handbrake.log",});
+} else {
+ $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},});
+}
 #if (${$hbrc} eq 'hbdone') {
 #  _postproccess ({dir=>$proccessvideodir,debug=>${$config}->{'debug_postproccess'},});
 #}

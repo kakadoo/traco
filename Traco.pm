@@ -18,7 +18,7 @@ use feature qw/switch/;
 use File::Find;
 use Sys::Hostname;
 use File::Basename;
-use Data::Dumper;
+#use Data::Dumper;
 use Fcntl ':flock';
 use Sys::Syslog qw/:DEFAULT setlogsock/;
 use constant { EINSNULLNULLNULL => 1000,
@@ -52,21 +52,21 @@ $VERSION = '0.21';
 
 sub new {
 	my ($class,$args) = @_;
-	my $shelf = {};
+	my $self = {};
 	$class = ref($class) || $class;
 	my $d = \$args->{'debug'} ;
-	$shelf->{'debug'} = ${$d};
-	$shelf->{'facility'} = 'syslog';
-	$shelf->{'priority'} = 'info';
+	$self->{'debug'} = ${$d};
+	$self->{'facility'} = 'syslog';
+	$self->{'priority'} = 'info';
 	if (${$d}) { print {*STDOUT} "$PROGRAM_NAME | new | uid = $UID | debug = ${$d}\n" or croak $ERRNO; }
-	bless $shelf,$class;
-	return $shelf;
+	bless $self,$class;
+	return $self;
 } # end sub new
 my @dirlist = ();
 
 
 sub prepare_traco_ts {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $dir = \$args->{'source'};
 my $dbg = \$args->{'debug'};
 my $vdrversion=\$args->{'vdrversion'},
@@ -85,22 +85,22 @@ if ( -e "${$dir}/info" ) { $vdr_info="${$dir}/info";}
 if ( -e "${$dir}/info.vdr" ) { $vdr_info="${$dir}/info.vdr";}
 
 if ($vdr_marks eq q{} ) {
-my $files = \$shelf->getfromxml({file=>$xmlfile,field=>'files',debug=>${$dbg},});
-my $info = \$shelf->parsevdrinfo({dir=>${$dir},file=>$vdr_info,debug=>${$dbg},});
+my $files = \$self->getfromxml({file=>$xmlfile,field=>'files',debug=>${$dbg},});
+my $info = \$self->parsevdrinfo({dir=>${$dir},file=>$vdr_info,debug=>${$dbg},});
 my $totalframes = ${$info}->{'duration'} * ${$info}->{'frames'};
 
   if ( ( defined ${$files} ) and ( ${$files} ne q{} ) ) {
-    my $rc=\$shelf->_joinfiles({dir=>${$dir},files=>${$files},debug=>${$dbg},});
+    my $rc=\$self->_joinfiles({dir=>${$dir},files=>${$files},debug=>${$dbg},});
     if (${$rc} eq 'joindone') {
-      $shelf->changexmlfile({file=>$xmlfile,action=>'change',field=>'status',to=>'online',debug=>${$dbg},});
-      $shelf->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>$totalframes,debug=>${$dbg},});
+      $self->changexmlfile({file=>$xmlfile,action=>'change',field=>'status',to=>'online',debug=>${$dbg},});
+      $self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>$totalframes,debug=>${$dbg},});
     }
     undef $files;
   } else {
     $returncode = 'prepare_traco_ts_join_error';
   }
 } else {
-      my $cutrc=\$shelf->combine_ts ({source=>${$dir},
+      my $cutrc=\$self->combine_ts ({source=>${$dir},
 					      target=>"${$dir}/vdrtranscode.ts",
 					      debug=>${$dbg},
 					      vdrversion=>${$vdrversion},
@@ -110,9 +110,9 @@ my $totalframes = ${$info}->{'duration'} * ${$info}->{'frames'};
 					      marksfile=>$vdr_marks,
 					      });
 	if ( ${$cutrc} eq 'combine_ts_done' ) {
-	  $shelf->changexmlfile({file=>$xmlfile,action=>'change',field=>'status',to=>'online',debug=>${$dbg},});
+	  $self->changexmlfile({file=>$xmlfile,action=>'change',field=>'status',to=>'online',debug=>${$dbg},});
 	} else {
-	  $shelf->message ({msg=>"prepare_traco_ts returncode ${$cutrc} in $dir",v=>'vvv'});
+	  $self->message ({msg=>"prepare_traco_ts returncode ${$cutrc} in $dir",v=>'vvv'});
 	  $returncode = 'prepare_traco_ts_cut_error';
 	}
       $cutrc=q{};
@@ -121,54 +121,54 @@ my $totalframes = ${$info}->{'duration'} * ${$info}->{'frames'};
 return ($returncode);
 }
 sub run_handbrake {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $execline = \$args->{'execline'};
 my $dbg = \$args->{'debug'};
-
+my $wrlog = \$args->{'writelog'};
 if ( not ( ${$execline} ) ) { return ('noexeclineforhb'); }
 
-my $time_start = \$shelf->_preparedtime({timeformat=>0,});
+my $time_start = \$self->_preparedtime({timeformat=>0,});
 
-  $shelf->message({msg=>"JOB START -- ${$time_start}",}) ;
-  my $jobresult = \$shelf->_runexternal({line=>${$execline},debug=>${$dbg},});
+  $self->message({msg=>"JOB START -- ${$time_start}",}) ;
+  my $jobresult = \$self->_runexternal({line=>${$execline},debug=>${$dbg},writelog=>${$wrlog},});
   for my $l (@{ ${$jobresult}->{'returndata'} } ) {
-    $shelf->message({msg=>"[jobresult]$l",v=>'vvv'});
+    $self->message({msg=>"[jobresult]$l",v=>'vvv'});
   }
-  my $time_end = \$shelf->_preparedtime({timeformat=>0,});
-  $shelf->message({msg=>"JOB STOP -- ${$time_end}",}) ;
+  my $time_end = \$self->_preparedtime({timeformat=>0,});
+  $self->message({msg=>"JOB STOP -- ${$time_end}",}) ;
 undef $time_end;
 undef $time_start;
 return ('hbdone');
 }
 
 sub setup {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $fac = \$args->{'facility'};
 my $pri = \$args->{'priority'};
 my $ll = \$args->{'daemon'};
 my $vl = \$args->{'verboselevel'};
 
 if (${$fac}) {
-  $shelf->{'facility'} = ${$fac};
+  $self->{'facility'} = ${$fac};
 }
 if (${$pri}) {
-  $shelf->{'priority'} = ${$pri};
+  $self->{'priority'} = ${$pri};
 }
 if (${$ll}) {
-  $shelf->{'daemon'} = ${$ll} ;
+  $self->{'daemon'} = ${$ll} ;
 }
 if (${$vl}) {
-  $shelf->{'verboselevel'} = ${$vl} ;
+  $self->{'verboselevel'} = ${$vl} ;
 }
 
 return ();
 }
 sub _preparedtime {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $tif = \$args->{'timeformat'};
 my $ti =q{};
 my $tiformat = ${$tif} || '0';
-my $dbg = \$shelf->{'debug'}  ;
+my $dbg = \$self->{'debug'}  ;
 
 my ($sec,$min,$hour,$mday,$mon,$jahr,$wday) = localtime ;
 my $year=NEUNZEHNNULLNULL+$jahr;
@@ -191,7 +191,7 @@ given ($tiformat) {
 } # end sub preparetime
 
 sub getfilelist {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $searchpath = \$args->{'dir'};
 my $debug = \$args->{'debug'};
 my $p = \$args->{'pattern'};
@@ -205,20 +205,20 @@ if ( ${$p} ) {
 my @CA = caller 1;
 
 if ( ($CA[DREI] ) and ( $CA[DREI] ne 'Traco::Traco::getfilelist') ) {
-  $shelf->message({ msg=>'Vdrtranscode.pm|getfilelist',v=>'vvvvv',});
+  $self->message({ msg=>'Vdrtranscode.pm|getfilelist',v=>'vvvvv',});
   @dirlist = ();
 }
 
-$shelf->message({ msg=>"Vdrtranscode.pm|_getfilelist|search pattern = $pattern",debug=>${$debug},v=>'vvvvv',});
+$self->message({ msg=>"Vdrtranscode.pm|_getfilelist|search pattern = $pattern",debug=>${$debug},v=>'vvvvv',});
 
 if ( not ( -d ${$searchpath} ) ) { return ('getfilelist_pathnotfound'); }
-$shelf->message({ msg=>"Vdrtranscode.pm|getfilelist|searchpath ${$searchpath} exist",debug=>${$debug},v=>'vvvvv',});
+$self->message({ msg=>"Vdrtranscode.pm|getfilelist|searchpath ${$searchpath} exist",debug=>${$debug},v=>'vvvvv',});
 
 my @double = grep { /\Q(${$searchpath})/smx } @dirlist ;
 if ( $#double >= 0 ) { next  ;};
 undef @double;
 
-my @flist =\$shelf->_get_files_in_dir({dir=>${$searchpath},debug=>${$debug},});
+my @flist =\$self->_get_files_in_dir({dir=>${$searchpath},debug=>${$debug},});
 
 
 
@@ -230,13 +230,13 @@ foreach my $f (@flist) {
   # skip links if option set
   if ( ${$skiplinks} ) { if ( -l $file ) { next ; } }
   if (-d $file ) {
-    $shelf->getfilelist ({dir=>$file,pattern=>$pattern,skiplinks=>${$skiplinks},debug=>${$debug},v=>'vvvvv',}) ;
+    $self->getfilelist ({dir=>$file,pattern=>$pattern,skiplinks=>${$skiplinks},debug=>${$debug},v=>'vvvvv',}) ;
   }
   # skip double entrys
   my @tmp = grep { /\Q$dir/smx } @dirlist;
 
   if ( ( $#tmp < 0 )  and ( $file =~ /($pattern)/smx ) ) {
-    $shelf->message({ msg=>"Vdrtranscode.pm|_getfilelist|add file $file to return hash \@dirlist",debug=>${$debug},v=>'vvvvv',});
+    $self->message({ msg=>"Vdrtranscode.pm|_getfilelist|add file $file to return hash \@dirlist",debug=>${$debug},v=>'vvvvv',});
     push @dirlist,$file;
   } else {
     next;
@@ -250,7 +250,7 @@ return (@dirlist);
 } # end sub
 
 sub findmyfile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $searchpath = \$args->{'dir'};
 my $action = \$args->{'action'};
 my @CA = caller 1;
@@ -263,7 +263,7 @@ given (${$action}) {
     find ( \&_filefindforvideolist, ${$searchpath} ) ;
   }
   #when ( /^handbrake$/smx ) {
-  #  $shelf->_filefindgzip({dir=>${$searchpath},}) ;
+  #  $self->_filefindgzip({dir=>${$searchpath},}) ;
   #}
 }
 return (@dirlist);
@@ -281,7 +281,7 @@ return ();
 }
 
 sub writelockfile  {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $lckpath = \$args->{'dir'};
 my $computer = hostname ;
 my $lockfile = "${$lckpath}/vdrtranscode.lck";
@@ -290,7 +290,7 @@ my @content = ();
 push @content,$computer;
 
 if ( not ( -e $lockfile ) ) {
-  my $wrrc = \$shelf->writefile({file=>$lockfile,content=>\@content,});
+  my $wrrc = \$self->writefile({file=>$lockfile,content=>\@content,});
 } else {
   $returnline = 'file already locked';
 }
@@ -299,7 +299,7 @@ return ($returnline);
 }
 
 sub readlockfile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $lckpath = \$args->{'dir'};
 my $computer = q{};
 
@@ -314,7 +314,7 @@ return ($computer);
 }
 
 sub removelockfile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $lckpath = \$args->{'dir'};
 my $rc = q{};
 
@@ -328,7 +328,7 @@ return ($rc);
 # parsing of marks(.vdr) based on 
 # http://www.vdr-wiki.de/wiki/index.php/Vdr%285%29#MARKS
 sub parsevdrmarks {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $markspath = \$args->{'dir'};
 my $f = \$args->{'fps'};
 my $fps = ${$f} || '25'; # default 25 fps wenn nix uebergeben wird
@@ -341,7 +341,7 @@ my $rcdb = {}; # return db
 #if ( -e "${$markspath}/marks.vdr" ) { $marksfile="${$markspath}/marks.vdr";}
 #if ($marksfile eq q{} ) { return ('nomarksfound'); }
 
-my $readfile = \$shelf->readfile({file=>${$marksfile},});
+my $readfile = \$self->readfile({file=>${$marksfile},});
 
 if ( ${$readfile}->{'returncode'} =~ /[_]done$/smx ) {
 # how may cuts availble
@@ -395,7 +395,7 @@ for my $y (0 .. $rcdb->{'cutcount'} ) {
 if ( $rcdb->{'cutcount'} <= 0 ) { # no markers used 
   my ( $hour , $minute , $sec ) = ${$duration} =~ /(\d+):(\d+):(\d+)/smx;
   $rcdb->{'totalframes'} = ( ( ( $hour * SECHSNULL * SECHSNULL ) + ( $minute * SECHSNULL ) + $sec ) * $fps ) ;
-  $shelf->message({msg=>"[no markers found]\$totalframes are $rcdb->{'totalframes'}",verbose=>'vvv',}) ;
+  $self->message({msg=>"[no markers found]\$totalframes are $rcdb->{'totalframes'}",verbose=>'vvv',}) ;
 }
 
 
@@ -404,7 +404,7 @@ return ($rcdb);
 } # end sub parsevdrmarks 
 
 sub buildrunline {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $dir=\$args->{'dir'};
 my $dbg=\$args->{'debug'};
 my $tracoenv=\$args->{'tracoenv'};
@@ -414,7 +414,7 @@ my $recalc_video_bitrate = \$args->{'recalc_video_bitrate'};
 my $target_mbyte_size = \$args->{'target_mbyte_size'};
 my $useclassic = \$args->{'useclassic'};
 
-my $runline = "nice -n ${$profile}->{'nice'} ${$profile}->{'hb_bin'}";
+my $runline = "nice -n ${$profile}->{'nice'} ${$profile}->{'hb_bin'} --no-dvdnav";
 
 if ( ${$profile}->{'setcpu'} ) {
   $runline .= " -C ${$profile}->{'setcpu'}";
@@ -480,11 +480,11 @@ $runline .= ' 2>&1';
 undef $profile;
 undef $hba;
 
-$shelf->message({msg=>"[buildrunline]runline = $runline",v=>'vvv',debug=>${$dbg},}) ;
+$self->message({msg=>"[buildrunline]runline = $runline",v=>'vvv',debug=>${$dbg},}) ;
 return ($runline);
 }
 sub prepare_audio_tracks {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $audiotrack = \$args->{'audiotrack'}; # can be ALL or FIRST
 my $hbanalyse = \$args->{'hbanalyse'};
 my $dbg = \$args->{'debug'};
@@ -502,7 +502,7 @@ $hbopts->{'lang'} = q{};
 $hbopts->{'kbps'} = q{};
 given (${$audiotrack}) {
   when ( /^(?:first|FIRST)$/smx ) {
-    $shelf->message ({msg=>'[prepare_audio_tracks]use just the first audiotrack',v=>'vvv',debug=>${$dbg},});
+    $self->message ({msg=>'[prepare_audio_tracks]use just the first audiotrack',v=>'vvv',debug=>${$dbg},});
     $hbopts->{'audiotracks'} = 1;
     if  (exists ${$hbanalyse}->{'audiotrack[0]options'} ) {
     my $audiotrackoptions = ${$hbanalyse}->{'audiotrack[0]options'};
@@ -524,7 +524,7 @@ given (${$audiotrack}) {
     }
   } # end when first
   when ( $_ =~ /^(?:all|ALL)$/smx ) {
-    $shelf->message ({msg=>'[prepare_audio_tracks] use all audiotracks',v=>'vvv',debug=>${$dbg},});
+    $self->message ({msg=>'[prepare_audio_tracks] use all audiotracks',v=>'vvv',debug=>${$dbg},});
     my $audiotracks = ${$hbanalyse}->{'audiotracks'} -1;
     foreach my $i ( 0 ..$audiotracks ) {
     if (exists ${$hbanalyse}->{"audiotrack[$i]options"} ) {
@@ -567,7 +567,7 @@ return ($hbopts);
 # parsing of info.(vdr) based on 
 # http://www.vdr-wiki.de/wiki/index.php/Info.vdr
 sub parsevdrinfo {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $wrkdir = \$args->{'dir'};
 my $dbg = \$args->{'debug'};
 my $file = \$args->{'infofile'};
@@ -583,7 +583,7 @@ if ( ${$file} ) { $infofile = ${$file} ; }
 
 #if ($infofile eq q{}) { return () };
 
-my $content = \$shelf->readfile({file=>$infofile,});
+my $content = \$self->readfile({file=>$infofile,});
 if ( ${$content}->{'returncode'} !~ /[_]done$/smx ) { return ('info_file_not_found') ; };
 
 foreach my $i ( @{ ${$content}->{'returndata'} } ) {
@@ -653,7 +653,7 @@ return ($rcdb);
 }
 
 sub handbrakeanalyse {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $file = \$args->{'file'};
 my $dbg = \$args->{'debug'};
 my $mynice = \$args->{'nice'};
@@ -675,7 +675,7 @@ $workfile =~ s/[&]/\\&/gmisx ;
 my $runline = "nice -n ${$mynice} ${$handbrake} --scan";
 if ( ${$starttime} )  { $runline .= " --start-at duration:${$starttime}"; }
 $runline .= " -i $workfile -o /dev/null -t 0 2>&1";
-my $analyse = $shelf->_runexternal({line=>$runline,debug=>${$dbg},});
+my $analyse = $self->_runexternal({line=>$runline,debug=>${$dbg},});
 
 # first cut out just lines with the leading + 
 my @tmpdb = grep { /(?:^|(?:\s+|\t+))[+]\s/smx } @{$analyse->{'returndata'}};
@@ -690,9 +690,9 @@ my @stage1options = grep { /^($pattern1)[:]\s/smx } @tmpdb2;
 my @stage3options = grep { /fps/smx } @tmpdb2;
 
 # prepare Chapter , Audio , Subtitle
-my $returndb = $shelf->_handbrakeanalyse_cas({cas=>\@tmpdb,kbps=>${$kbps},debug=>${$dbg},});
+my $returndb = $self->_handbrakeanalyse_cas({cas=>\@tmpdb,kbps=>${$kbps},debug=>${$dbg},});
 
-$returndb->{'audioopts'} = $shelf->prepare_audio_tracks({audiotrack=>${$audiotrack},
+$returndb->{'audioopts'} = $self->prepare_audio_tracks({audiotrack=>${$audiotrack},
   hbanalyse=>$returndb,
   kbps=>${$kbps},
   drc=>${$drc},
@@ -713,7 +713,7 @@ for my $o (@stage3options) {
 
 if (${$fpstype} =~ /^(?:vdr|VDR)$/smx ) {
   my $dir = dirname ${$file};
-  my $vdrfps = \$shelf->getfromxml({file=>"$dir/vdrtranscode.xml",
+  my $vdrfps = \$self->getfromxml({file=>"$dir/vdrtranscode.xml",
 				      field=>'frames',
 					block=>'vdrinfo',
 					debug=>${$dbg},
@@ -724,7 +724,7 @@ if (${$fpstype} =~ /^(?:vdr|VDR)$/smx ) {
 return ($returndb);
 }
 sub _handbrakeanalyse_cas {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my @tmpdb = @{$args->{'cas'}};# cas = ChapterAudioSubtitle
 my $kbps=\$args->{'kbps'};
 my $dbg=\$args->{'debug'};
@@ -751,7 +751,7 @@ while ($#tmpdb >= $z) {
     while ( ( exists $tmpdb[$a] ) and ( $tmpdb[$a] !~ /subtitle\stracks[:]/smx ) ) {
       $tmpdb[$a] =~ s/^\d+[,]\s//smx ; # remove trailling  digit(s),
 
-      my $audiodb = \$shelf->_prepareaudiooptions ({line=>$tmpdb[$a],kbps=>${$kbps},debug=>${$dbg},});
+      my $audiodb = \$self->_prepareaudiooptions ({line=>$tmpdb[$a],kbps=>${$kbps},debug=>${$dbg},});
       
       $returndb->{"audiotrack[$audiotracks]"} = $tmpdb[$a] || q{};
       $returndb->{"audiotrack[$audiotracks]options"} = ${$audiodb};
@@ -777,7 +777,7 @@ return ($returndb);
 }
 
 sub _prepareaudiooptions {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $line = \$args->{'line'};
 my $inkbps = \$args->{'kbps'};
 my $returndb = {};
@@ -801,13 +801,13 @@ return ($returndb);
 }
 
 sub setcpuoptions {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $debug = \$args->{'debug'};
 my $setconfig = \$args->{'config'};
 my $maxconfig = \$args->{'maxcpu'};
 my $cpucount = 0;
 my $returnline = 1;
-my $cpuinfo = \$shelf->_runexternal({line=>'/bin/cat /proc/cpuinfo',debug=>${$debug}});
+my $cpuinfo = \$self->_runexternal({line=>'/bin/cat /proc/cpuinfo',debug=>${$debug}});
 
 
 for my $c (@{${$cpuinfo}->{'returndata'}} ) {
@@ -838,15 +838,15 @@ return ($returnline);
 }
 
 sub message {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $message = \$args->{'msg'};
 my $dbg=\$args->{'debug'};
 my $v = \$args->{'v'} ;
 #
-my $isdaemon = \$shelf->{'daemon'};
-my $verboselevel = \$shelf->{'verboselevel'};
-my $facility = \$shelf->{'facility'};
-my $priority = \$shelf->{'priority'};
+my $isdaemon = \$self->{'daemon'};
+my $verboselevel = \$self->{'verboselevel'};
+my $facility = \$self->{'facility'};
+my $priority = \$self->{'priority'};
 #
 my $vv = 0;
 my $isd = 0 ;
@@ -858,9 +858,9 @@ if ( ${$verboselevel} ) {$vl = length ${$verboselevel} ; }
 if ( ${$v} )  { $vv = length ${$v} ; }
 
 if ($isd == 1) {
-  $shelf->_output_syslog({vv=>$vv,vl=>$vl,message=>${$message},debug=>${$dbg},});
+  $self->_output_syslog({vv=>$vv,vl=>$vl,message=>${$message},debug=>${$dbg},});
 } elsif ($isd == 0 ) {
-  $shelf->_output_stdout({vv=>$vv,vl=>$vl,message=>${$message},debug=>${$dbg},});
+  $self->_output_stdout({vv=>$vv,vl=>$vl,message=>${$message},debug=>${$dbg},});
 }
 undef $vv;
 undef $isd;
@@ -870,7 +870,7 @@ return ();
 }
 
 sub _output_stdout {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $vv = \$args->{'vv'};
 my $verbose = ${$vv};
 my $vl = \$args->{'vl'};
@@ -894,13 +894,13 @@ return ();
 }
 
 sub _output_syslog {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $vv = \$args->{'vv'};
 my $vl = \$args->{'vl'};
 my $verbose = ${$vv};
 my $message = \$args->{'message'};
-my $facility = \$shelf->{'facility'};
-my $priority = \$shelf->{'priority'};
+my $facility = \$self->{'facility'};
+my $priority = \$self->{'priority'};
 my $dbg = \$args->{'debug'};
 
   given ($verbose) {
@@ -924,13 +924,24 @@ my $dbg = \$args->{'debug'};
 undef $message;
 return ();
 }
-
+sub _writelog {
+my  ($self,$args) = @_;
+my $line = \$args->{'line'};
+my $file = \$args->{'file'};
+	my @tmp;
+	push @tmp,${$line};
+	my $logrc = \$self->writefile({file=>${$file},content=>\@tmp,options=>'>>',});
+	undef @tmp;
+return ();
+}
 sub _runexternal {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $dbg = \$args->{'debug'}  ;
 my $l=\$args->{'line'} ;
+my $wlog=\$args->{'writelog'};
+
 my $line = ${$l} ;
-$shelf->message({msg=>"[_runexternal]run | $line",v=>'vvv',debug=>${$dbg},});
+$self->message({msg=>"[_runexternal]run | $line",v=>'vvv',debug=>${$dbg},});
 
 if ( not ( $line ) ) { return ('no_exec_line_exists_for_runexternal')};
 my $returnline = {};
@@ -942,11 +953,19 @@ my $childpid = open3(\*CHLD_IN,\*CHLD_OUT, \*CHLD_ERR, $line);
   use Symbol 'gensym'; #$err = gensym;
   if ( ${$dbg} ) {
     while (<CHLD_OUT>) {
-      $shelf->message({msg=>"[_runexternal]$_",debug=>${$dbg},v=>'vvvvvvv',});
+      $self->message({msg=>"[_runexternal]$_",debug=>${$dbg},v=>'vvvvvvv',});
+      if ( ${$wlog} ) {
+	$self->_writelog({line=>$_,file=>${$wlog},});
+      };
       push @response,$_;
     }
   } else {
-    @response = <CHLD_OUT>;
+    while (<CHLD_OUT>) {
+      if ( ${$wlog} ) {
+	$self->_writelog({line=>$_,file=>${$wlog},});
+      };
+      push @response,$_;
+    }
    }
   #@response = <CHLD_OUT>;
   @errors = <CHLD_ERR>;
@@ -963,11 +982,11 @@ return ($returnline);
 } # end sub _runexternal
 
 sub parseconfig {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $file = \$args->{'config'};
 my $debug = \$args->{'debug'};
 my $config = {};
-my $lines = \$shelf->readfile({file=>${$file},});
+my $lines = \$self->readfile({file=>${$file},});
 
 if ( ${$lines}->{'returncode'} !~ /[_]done$/smx ) { 
   print {*STDOUT} "trouble to read configfile exit $PROGRAM_NAME\n" or croak $ERRNO ;
@@ -981,7 +1000,7 @@ if ( ${$lines}->{'returncode'} !~ /[_]done$/smx ) {
     if ( $_ =~ /^\#/smx ) { next; } ;
     if ( !length ) { next; } ;
     my ($key,$tmp_value) = split /\s*=(?:\s*|\t*)/smx ,$_,2;
-    my $value = \$shelf->_parse_config_value({value=>$tmp_value,debug=>${$debug},});
+    my $value = \$self->_parse_config_value({value=>$tmp_value,debug=>${$debug},});
     undef $tmp_value;
     if ( ${$debug} ) { print {*STDOUT} "[DEBUG] _parseconfig | $_\n" or croak $ERRNO; }
     $config->{$key} = ${$value};
@@ -990,7 +1009,7 @@ if ( ${$lines}->{'returncode'} !~ /[_]done$/smx ) {
 return $config;
 }
 sub _parse_config_value {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $value = \$args->{'value'};
 my $debug = \$args->{'debug'};
 my $rc = ${$value};
@@ -1002,7 +1021,7 @@ if ( ${$value} =~ /^(?:no|NO|[0]|false|false)$/smx ) { $rc = undef; };
 return ($rc);
 }
 sub chkvdrversion {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $debug = \$args->{'debug'};
 my $dir = \$args->{'dir'};
 my $type = \$args->{'type'};
@@ -1012,7 +1031,7 @@ my $returnline = q{};
 
 given (${$type}) {
   when ( /^prg$/smx ) {
-    my $runexternal = \$shelf->_runexternal({line=>'vdr -V | grep -E vdr',debug=>${$debug},}); # eg. vdr (1.7.18/1.7.18) - The Video Disk Recorder
+    my $runexternal = \$self->_runexternal({line=>'vdr -V | grep -E vdr',debug=>${$debug},}); # eg. vdr (1.7.18/1.7.18) - The Video Disk Recorder
     for my $v (@{ ${$runexternal}->{'returndata'}} ) {
       if ( $v =~ /[(]1[.]7[.]/smx )  { $returnline = '1.7'; }
       if ( $v =~ /[(]1[.]6[.]/smx )  { $returnline = '1.6'; }
@@ -1026,10 +1045,10 @@ return ($returnline);
 }
 
 sub preparepath {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $path = \$args->{'path'};
 my $debug = \$args->{'debug'};
-
+if ( ! ${$path} ) { return ('preparepath_fail'); }
 my $returnline=q{};
 # check if path an existing directory
 if ( -d ${$path} ) {
@@ -1050,7 +1069,7 @@ return ($returnline) ;
 } # end sub
 
 sub prepare_crop {
-my ($shelf,$args) = @_ ;
+my ($self,$args) = @_ ;
 my $oldcrop = \$args->{'crop'};
 my @new_crop = ();
 my ($org_top,$org_bottom,$org_left,$org_right ) = split /\//smx,${$oldcrop};
@@ -1060,7 +1079,7 @@ foreach my $a ( 0..1 ) {$new_crop[$a] = $org_top > $org_bottom ? $org_top : $org
 foreach my $b ( 2..DREI ) {$new_crop[$b] = $org_left > $org_right ? $org_left : $org_right ;}
 # rounding by modulo 8( sprintf "%.0f" , ( $probe_memory_ammount_Mbyte / 25 )) * 25 ;
 foreach my $c ( @new_crop ) { $c = ( sprintf '%.0f' , ( ( $c / ACHT ) * ACHT ) ) } ;
-$shelf->message({msg=>"crop old : $org_top/$org_bottom/$org_left/$org_right crop new : @new_crop",verbose=>'v',}) ;
+$self->message({msg=>"crop old : $org_top/$org_bottom/$org_left/$org_right crop new : @new_crop",verbose=>'v',}) ;
 my $param_crop = "$new_crop[0]:$new_crop[1]:$new_crop[2]:$new_crop[DREI]" ;
 undef @new_crop;
 
@@ -1068,7 +1087,7 @@ return ($param_crop);
 
 }
 sub recalculate_video_bitrate {
-my ($shelf,$args) = @_ ;
+my ($self,$args) = @_ ;
 my $frames = \$args->{'frames'} ;
 my $fps = \$args->{'fps'};
 my $aac_nr = \$args->{'aac_nr'};
@@ -1150,7 +1169,7 @@ my $probe_memory_ammount_kbyte = $video_kbyte_size + $ac3_kbytesize + $audiokbyt
 
 my $probe_memory_ammount_mbyte = sprintf '%i' , ($probe_memory_ammount_kbyte / EINSNULLNULLNULL );
 
-$shelf->message ({msg=>"\$probe_memory_ammount_mbyte $probe_memory_ammount_mbyte",}) ;
+$self->message ({msg=>"\$probe_memory_ammount_mbyte $probe_memory_ammount_mbyte",}) ;
 
 # rounding
   given ($probe_memory_ammount_mbyte) {
@@ -1167,7 +1186,7 @@ $shelf->message ({msg=>"\$probe_memory_ammount_mbyte $probe_memory_ammount_mbyte
       $round_memory_ammount_mbyte = ( sprintf '%.0f' , (( $probe_memory_ammount_mbyte / FUENFNULL ) * FUENFNULL) ) ;
     }
   }
-  $shelf->message ({msg=>"\$round_memory_ammount_Mbyte $round_memory_ammount_mbyte",});
+  $self->message ({msg=>"\$round_memory_ammount_Mbyte $round_memory_ammount_mbyte",});
 
 my $round_memory_ammount_kbyte = $round_memory_ammount_mbyte * EINSNULLZWEIVIER ;
 $round_memory_ammount_kbyte = $round_memory_ammount_kbyte * EMPIRIC_FACTOR ; # empiric factor add 

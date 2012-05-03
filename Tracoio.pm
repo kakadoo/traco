@@ -30,17 +30,17 @@ $VERSION = '0.18';
 
 sub new {
 	my ($class,$args) = @_;
-	my $shelf = {};
+	my $self = {};
 	$class = ref($class) || $class;
 	my $d = \$args->{'debug'} ;
-	$shelf->{'debug'} = ${$d};
+	$self->{'debug'} = ${$d};
 	if ( ${$d} ) { print {*STDOUT} "$PROGRAM_NAME | new | uid = $UID\n" or croak $ERRNO; }
-	bless $shelf,$class;
-	return $shelf;
+	bless $self,$class;
+	return $self;
 } # end sub new
 
 sub _getfps {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $fpstype = \$args->{'fpstype'};
 my $dbg=\$args->{'debug'};
 my $dir=\$args->{'dir'};
@@ -51,7 +51,7 @@ my $nice=\$args->{'nice'};
      # um die richtige fps zahl zu haben fuer die berechnung
      given ( ${$fpstype} ) {
       when ( /^vdr$/smx ) {
-	my $vdrfps = \$shelf->getfromxml({file=>"${$dir}/vdrtranscode.xml",
+	my $vdrfps = \$self->getfromxml({file=>"${$dir}/vdrtranscode.xml",
 					field=>'frames',
 					block=>'vdrinfo',
 					debug=>${dbg},
@@ -60,7 +60,7 @@ my $nice=\$args->{'nice'};
 	undef $vdrfps;
       }
       when ( /^handbrake$/smx ) {
-	my $hba = \$shelf->handbrakeanalyse({file=>"${$dir}/00001.*",
+	my $hba = \$self->handbrakeanalyse({file=>"${$dir}/00001.*",
 						    nice=>${$nice},
 						    handbrake=>${$hb},
 						    debug=>${$dbg},
@@ -73,7 +73,7 @@ my $nice=\$args->{'nice'};
 return ($returnline);
 }
 sub combine_ts {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $source_ts = \$args->{'source'} ;
 my $target_ts = \$args->{'target'};
 my $source_ts_dir = ${$source_ts};
@@ -90,7 +90,7 @@ if ( -e ${$target_ts} ) { return ('target_exist_in_cutfiles') };
 if ( not ( ${$vdrv} ) ) { return ('missing_vdr_version_in_cutfiles'); };
 if ( not ( ${$marksfile} ) ) { return ('missing_marks_file_in_cutfiles'); };
 
-my $fps=\$shelf->_getfps({fpstype=>${$fpstype},dir=>${$source_ts},debug=>${$dbg},handbrake=>${$hb},nice=>${$nice},});
+my $fps=\$self->_getfps({fpstype=>${$fpstype},dir=>${$source_ts},debug=>${$dbg},handbrake=>${$hb},nice=>${$nice},});
 
 my $start = {};
 my $stop = {};
@@ -104,12 +104,12 @@ if ( not ( $indexfile ) ) {
  return ('indexfile not found in combine_ts');
 }
 
-$shelf->message({msg=>"combine TS Files in ${$source_ts}",}) ;
-$shelf->message({msg=>'get Byte Positions based on marks',debug=>${$dbg},v=>'v',}) ;
+$self->message({msg=>"combine TS Files in ${$source_ts}",}) ;
+$self->message({msg=>'get Byte Positions based on marks',debug=>${$dbg},v=>'v',}) ;
 
-my $ref_marks = \$shelf->parsevdrmarks({dir=>$source_ts_dir,fps=>${$fps},debug=>${$dbg},marksfile=>${$marksfile},});
+my $ref_marks = \$self->parsevdrmarks({dir=>$source_ts_dir,fps=>${$fps},debug=>${$dbg},marksfile=>${$marksfile},});
 
-$shelf->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>${$ref_marks}->{'totalframes'},debug=>${$dbg},});
+$self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>${$ref_marks}->{'totalframes'},debug=>${$dbg},});
 
 my $cutcount = ${$ref_marks}->{'cutcount'}-1;
 
@@ -118,8 +118,8 @@ foreach my $a (0 .. $cutcount) {
 
 my $startframe = ${$ref_marks}->{"start_fps$a"};
 my $stopframe = ${$ref_marks}->{"stop_fps$a"};
-my ($sta,$staf) = \$shelf->_getoffset({frame=>$startframe,index=>$indexfile,vdrversion=>$vdrversion,});
-my ($sto,$stof) = \$shelf->_getoffset({frame=>$stopframe,index=>$indexfile,vdrversion=>$vdrversion,});
+my ($sta,$staf) = \$self->_getoffset({frame=>$startframe,index=>$indexfile,vdrversion=>$vdrversion,});
+my ($sto,$stof) = \$self->_getoffset({frame=>$stopframe,index=>$indexfile,vdrversion=>$vdrversion,});
 $start->{"pos$a"} = ${$sta};
 $start->{"file$a"} = ${$staf};
 
@@ -127,21 +127,21 @@ $stop->{"pos$a"} = ${$sto};
 $stop->{"file$a"} = ${$stof};
 
 my $t=${$ref_marks}->{"start_time$a"} ;
-$shelf->message({msg=>"||cut -> $a time in sek -> $t || frame -> $startframe || byteposition start -> ${$sta} in File ${$staf} stop -> ${$sto} in File ${$stof}",debug=>${$dbg},v=>'vvv',}) ;
+$self->message({msg=>"||cut -> $a time in sek -> $t || frame -> $startframe || byteposition start -> ${$sta} in File ${$staf} stop -> ${$sto} in File ${$stof}",debug=>${$dbg},v=>'vvv',}) ;
 }
 
 my $wrkfile = q{};
 for my $a (0 .. $cutcount ) {
 my $rc = q{};
-$shelf->message ({msg=>"cut $a in .ts file from vdr cutlist...",debug=>${$dbg},v=>'v',}) ;
+$self->message ({msg=>"cut $a in .ts file from vdr cutlist...",debug=>${$dbg},v=>'v',}) ;
 
 my $filea = $start->{"file$a"};
 my $fileb = $stop->{"file$a"};
 
 if ( $filea == $fileb ) {
-  ($wrkfile,undef) = \$shelf->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$start->{"file$a"},});
-  $shelf->message ({msg=>"proccess ${$wrkfile} ***$filea == $fileb ",debug=>${$dbg},v=>'vvv',}) ;
-  $rc = \$shelf->_cutfile ({sourcedir=>$source_ts_dir,
+  ($wrkfile,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$start->{"file$a"},});
+  $self->message ({msg=>"proccess ${$wrkfile} ***$filea == $fileb ",debug=>${$dbg},v=>'vvv',}) ;
+  $rc = \$self->_cutfile ({sourcedir=>$source_ts_dir,
     target=>${$target_ts},
     startpos=>$start->{"pos$a"},
     stoppos=>$stop->{"pos$a"},
@@ -151,10 +151,10 @@ if ( $filea == $fileb ) {
   $wrkfile = q{};
 } elsif ( $filea != $fileb ) {
   # cutpart one
-  ($wrkfile,undef) = \$shelf->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$start->{"file$a"},});
+  ($wrkfile,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$start->{"file$a"},});
   my $bytesizefile = -s ${$wrkfile};
-  $shelf->message ({msg=>"proccess ${$wrkfile} ***$filea != $fileb ",debug=>${$dbg},v=>'vvv',}) ;
-  my $rc1 = \$shelf->_cutfile ({sourcedir=>$source_ts_dir,
+  $self->message ({msg=>"proccess ${$wrkfile} ***$filea != $fileb ",debug=>${$dbg},v=>'vvv',}) ;
+  my $rc1 = \$self->_cutfile ({sourcedir=>$source_ts_dir,
     target=>${$target_ts},
     startpos=>$start->{"pos$a"},
     stoppos=>$bytesizefile,
@@ -166,9 +166,9 @@ if ( $filea == $fileb ) {
  if (${$rc1} eq '_cutfile_done') {
   if ( ( $filea + 1 ) == $fileb ) {
   # cutpart two
-    ($wrkfile,undef) = \$shelf->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$stop->{"file$a"},});
-    $shelf->message ({msg=>"proccess ${$wrkfile} ***$filea+1 == $fileb ",debug=>${$dbg},v=>'vvv',}) ;
-    $rc = \$shelf->_cutfile ({sourcedir=>$source_ts_dir,
+    ($wrkfile,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$stop->{"file$a"},});
+    $self->message ({msg=>"proccess ${$wrkfile} ***$filea+1 == $fileb ",debug=>${$dbg},v=>'vvv',}) ;
+    $rc = \$self->_cutfile ({sourcedir=>$source_ts_dir,
       target=>${$target_ts},
       startpos=>'0',
       stoppos=>$stop->{"pos$a"},
@@ -182,16 +182,16 @@ if ( $filea == $fileb ) {
      my $lastmergefile = $fileb-1;
      my $tojoinfiles=q{};
       while ( $lastmergefile >= $filecount ) {
-	my ($jf,undef) = \$shelf->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$filecount,});
+	my ($jf,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$filecount,});
 	my $filename =  basename ${$jf};
 	$tojoinfiles="$tojoinfiles $filename";
 	$filecount++;
       }
-      $shelf->message ({msg=>"call _joinfiles dir = $source_ts_dir files = $tojoinfiles" ,debug=>${$dbg},v=>'vvv',}) ;
-      my $joinrc = \$shelf->_joinfiles({dir=>$source_ts_dir,files=>$tojoinfiles,});
-      $shelf->message ({msg=>"_joinfiles return = ${$joinrc}" ,debug=>${$dbg},v=>'vvv',}) ;
-      ($wrkfile,undef) = \$shelf->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$fileb,});
-      $rc = \$shelf->_cutfile ({sourcedir=>$source_ts_dir,
+      $self->message ({msg=>"call _joinfiles dir = $source_ts_dir files = $tojoinfiles" ,debug=>${$dbg},v=>'vvv',}) ;
+      my $joinrc = \$self->_joinfiles({dir=>$source_ts_dir,files=>$tojoinfiles,});
+      $self->message ({msg=>"_joinfiles return = ${$joinrc}" ,debug=>${$dbg},v=>'vvv',}) ;
+      ($wrkfile,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$fileb,});
+      $rc = \$self->_cutfile ({sourcedir=>$source_ts_dir,
 	target=>${$target_ts},
 	startpos=>'0',
 	stoppos=>$stop->{"pos$a"},
@@ -211,7 +211,7 @@ return ('combine_ts_done');
 
 }
 sub _get_files_in_dir {
-my ( $shelf,$args ) = @_;
+my ( $self,$args ) = @_;
 my $dir = \$args->{'dir'};
 my $p = \$args->{'pattern'};
 my $pattern = q{*};
@@ -224,12 +224,12 @@ return (@files);
 }
 
 sub _get_filename_by_cutfilenumber {
-my ( $shelf,$args ) = @_;
+my ( $self,$args ) = @_;
 my $source_dir = \$args->{'dir'};
 my $fileno = \$args->{'fileno'};
 my $start_ts = q{};
 my $vdrversion = '1.7';
-my @filelist=\$shelf->_get_files_in_dir ({dir=>${$source_dir},});
+my @filelist=\$self->_get_files_in_dir ({dir=>${$source_dir},});
 
 foreach my $f (@filelist) {
 #print "${$f} ${$fileno}\n";
@@ -247,7 +247,7 @@ return ($start_ts,$vdrversion);
 }
 
 sub _cutfile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 #return ('_cutfile_done'); # for testing enable
 my $source_ts_dir = \$args->{'sourcedir'} ;
 my $target = \$args->{'target'} ;
@@ -258,38 +258,38 @@ my $dbg=\$args->{'debug'};
 my $buffer;
 my $cont;
 #
-$shelf->message ({msg=>"cut file ${$file} ( start = ${$start} / stop = ${$stop} )",debug=>${$dbg},v=>'vvv',}) ;
+$self->message ({msg=>"cut file ${$file} ( start = ${$start} / stop = ${$stop} )",debug=>${$dbg},v=>'vvv',}) ;
 #
-open my $TOFH, '>>:raw', ${$target} or croak $shelf->message ({msg=>"cannot open ${$target} for writing ... $ERRNO",}) ;
+open my $TOFH, '>>:raw', ${$target} or croak $self->message ({msg=>"cannot open ${$target} for writing ... $ERRNO",}) ;
 
-open my $FH , '<:raw', ${$file} or croak $shelf->message ({msg=>"can't open ${$file} ... $ERRNO",}) ;
+open my $FH , '<:raw', ${$file} or croak $self->message ({msg=>"can't open ${$file} ... $ERRNO",}) ;
        seek $FH,${$start},0;
        while ($cont = read $FH, $buffer, BUFFERSIZE ) {
         my $readpos = tell $FH;
         if ($readpos == ${$stop} ) { last ; }
 	if ($readpos > ${$stop} ) {
 	  my $diff = $readpos - ${$stop};
-	  $shelf->message({msg=>"cutfiles | write | bytepos $readpos stop ${$stop} diff $diff ",v=>'vvv',debug=>${$dbg},});
+	  $self->message({msg=>"cutfiles | write | bytepos $readpos stop ${$stop} diff $diff ",v=>'vvv',debug=>${$dbg},});
 	  use bytes;
 	  my $newbuffer = bytes::substr $buffer,0,-$diff;
 	  my $newbufsize = bytes::length $newbuffer;
 	  no bytes;
-	  $shelf->message({msg=>"cutfiles | write last $newbufsize bytes",v=>'vvv',debug=>${$dbg},});
+	  $self->message({msg=>"cutfiles | write last $newbufsize bytes",v=>'vvv',debug=>${$dbg},});
           print {$TOFH} $newbuffer or croak "can't write to ${$target} $ERRNO";
 	  last ;
 	} else {
 	  print {$TOFH} $buffer or croak "can't write to ${$target} $ERRNO";
 	}
       }
- close $FH or croak $shelf->message({msg=>"can´t close ${$file} $ERRNO",});
- close $TOFH or croak $shelf->message({msg=>"can´t close ${$target} $ERRNO",}) ;
- $shelf->message ({msg=>"cut file ${$file} proccessed",debug=>${$dbg},v=>'v',}) ;
+ close $FH or croak $self->message({msg=>"can´t close ${$file} $ERRNO",});
+ close $TOFH or croak $self->message({msg=>"can´t close ${$target} $ERRNO",}) ;
+ $self->message ({msg=>"cut file ${$file} proccessed",debug=>${$dbg},v=>'v',}) ;
 return ('_cutfile_done');
 }
 
 
 sub _getoffset {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $f = \$args->{'frame'};
 my $frame = ${$f}-1;
 my $index = \$args->{'index'};
@@ -307,7 +307,7 @@ if ($defaultversion =~ /^1[.]6$/smx ) {
 if ( not ( ${$index} ) ) { return ('index not found in _getoffset'); }
 my ($byteoffset,$byteoffset2,$filenumber,$frametype);
 
-my $buffer = \$shelf->_readindex({index=>${$index},frame=>$startpos,});
+my $buffer = \$self->_readindex({index=>${$index},frame=>$startpos,});
 
 
 if ( ( $platform =~ /i486/smx ) and ( $defaultversion =~ /^1[.]7$/smx ) ) {
@@ -332,20 +332,20 @@ return ($byteoffset,$filenumber);
 }
 
 sub _readindex {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $frame = \$args->{'frame'};
 my $index = \$args->{'index'};
 my $buffer = q{};
 
-open my $INDEX, '<:raw', ${$index} or croak $shelf->message({msg=>"Couldn't open ${$index} $ERRNO"});
+open my $INDEX, '<:raw', ${$index} or croak $self->message({msg=>"Couldn't open ${$index} $ERRNO"});
   seek $INDEX, ${$frame} ,'0' ;
   read $INDEX, $buffer, ACHT;
-close $INDEX or croak $shelf->message({msg=>"Couldn't close ${$index} $ERRNO"});
+close $INDEX or croak $self->message({msg=>"Couldn't close ${$index} $ERRNO"});
 
 return ($buffer);
 }
 sub _joinfiles {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $dir = \$args->{'dir'};
 my $dbg = \$args->{'debug'};
 my $files = \$args->{'files'};
@@ -374,7 +374,7 @@ if ( -e "${$dir}/$destinationfile" ) {
 
 for my $file (@infiles) {
     if ( $file eq q{} ) { next ;};
-    $shelf->message ({msg=>"[joinfiles]proccess ${$dir}/$file",debug=>${$dbg},v=>'vvv',});
+    $self->message ({msg=>"[joinfiles]proccess ${$dir}/$file",debug=>${$dbg},v=>'vvv',});
     open $fh_out, $opentype , "${$dir}/$destinationfile" or croak "can't open ${$dir}/$destinationfile $ERRNO";
     open my $fh_in, '<:raw', "${$dir}/$file" or croak "can't open ${$dir}/$file $ERRNO";
     while ($copied = read $fh_in, $buffer, BUFFERSIZE) {
@@ -387,7 +387,7 @@ return ('joindone');
 } # end sub _joinfiles
 
 sub writefile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $file = \$args->{'file'};
 my $o = \$args->{'options'};
 my @content = @{$args->{'content'}};
@@ -406,7 +406,7 @@ return ('writedone');
 }
 
 sub readfile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $file = \$args->{'file'};
 
 my @content = ();

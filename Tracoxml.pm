@@ -9,7 +9,7 @@ use Carp;
 use IPC::Open3 'open3';
 use feature qw/switch/;
 use File::Basename;
-use Data::Dumper;
+#use Data::Dumper;
 use constant {SECHSNULLNULL => '600', NEUN => '9',};
 
 use Sys::Syslog qw/:DEFAULT setlogsock/;
@@ -30,33 +30,33 @@ $VERSION = '0.21';
 
 sub new {
 	my ($class,$args) = @_;
-	my $shelf = {};
+	my $self = {};
 	$class = ref($class) || $class;
 	my $d = \$args->{'debug'} ;
-	$shelf->{'debug'} = ${$d};
+	$self->{'debug'} = ${$d};
 	if (${$d}) { print {*STDOUT} "$PROGRAM_NAME | new | uid = $UID | debug = ${$d}\n" or croak $ERRNO; }
-	bless $shelf,$class;
-	return $shelf;
+	bless $self,$class;
+	return $self;
 } # end sub new
 
 sub createvdrtranscodexml {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $videopath=\$args->{'dir'};
 my $dbg=\$args->{'debug'};
 my $profile=\$args->{'profile'};
 my $returnline = q{};
 
-$shelf->message ({msg=>"vdrtranscode.xml not exist , create in ${$videopath}",v=>'v',});
-my $vdrinfocontent = \$shelf->parsevdrinfo({dir=>${$videopath},debug=>${$dbg},});
+$self->message ({msg=>"vdrtranscode.xml not exist , create in ${$videopath}",v=>'v',});
+my $vdrinfocontent = \$self->parsevdrinfo({dir=>${$videopath},debug=>${$dbg},});
 if ( ${$vdrinfocontent} ) {
-  my $rc = \$shelf->_createxmlfile({dir=>${$videopath},
+  my $rc = \$self->_createxmlfile({dir=>${$videopath},
 				    debug=>${$dbg},
 				    vdrinfo=>${$vdrinfocontent},
 				    profile=>${$profile},});
       if (${$rc} eq 'recording') {
 	$returnline ="still ${$rc}";
       } else {
-	$shelf->message ({msg=>"create ${$videopath}/vdrtranscode.xml done",});
+	$self->message ({msg=>"create ${$videopath}/vdrtranscode.xml done",});
 	$returnline = ${$rc};
       }
     }
@@ -64,7 +64,7 @@ return ($returnline);
 }
 
 sub changexmlfile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $xmlfile = \$args->{'file'};
 my $action = \$args->{'action'}; # can be add or change
 my $field = \$args->{'field'};
@@ -78,17 +78,17 @@ my $rc=q{};
 
 given (${$action}) {
   when ( /^change$/smx ) {
-   $rc=\$shelf->_support_change_xmlfile({file=>${$xmlfile},field=>${$field},to=>${$chto},debug=>${$dbg},});
+   $rc=\$self->_support_change_xmlfile({file=>${$xmlfile},field=>${$field},to=>${$chto},debug=>${$dbg},});
   }
   when ( /^add$/smx ) {
-   $rc=\$shelf->_support_add_xmlfile({file=>${$xmlfile},field=>${$field},content=>${$content},debug=>${$dbg},});
+   $rc=\$self->_support_add_xmlfile({file=>${$xmlfile},field=>${$field},content=>${$content},debug=>${$dbg},});
   }
 } # end given action
 return (${$rc});
 } # end sub
 
 sub _support_add_xmlfile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $xmlfile = \$args->{'file'};
 my $content = \$args->{'content'};
 my $field = \$args->{'field'};
@@ -97,7 +97,7 @@ my $dbg = \$args->{'debug'};
 my $returnline = 'done';
 my @check = ();
 
-my $xmlcontent = \$shelf->readfile({file=>${$xmlfile},});
+my $xmlcontent = \$self->readfile({file=>${$xmlfile},});
 if ( ${$xmlcontent}->{'returncode'} !~ /[_]done$/smx ) { return ('missing_xml_file_for_add') ; }
 #@{ ${$lines}->{'returndata'} }
 
@@ -155,7 +155,7 @@ given (${$field}) {
     $z++;
   }
 }
-my $wrrc = \$shelf->writefile({file=>${$xmlfile},content=>\@{ ${$xmlcontent}->{'returndata'} },});
+my $wrrc = \$self->writefile({file=>${$xmlfile},content=>\@{ ${$xmlcontent}->{'returndata'} },});
 
 undef $xmlcontent;
 return ($returnline);
@@ -163,7 +163,7 @@ return ($returnline);
 
 
 sub _support_change_xmlfile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $xmlfile = \$args->{'file'};
 my $field = \$args->{'field'};
 my $chto = \$args->{'to'};
@@ -173,7 +173,7 @@ my $dbg = \$args->{'debug'};
 if ( ${$field} !~ /^(?:status|files|quality|container|audiotracks)$/smx )  {
     return ('wrong_field_for_change');
 }
-my $xmlcontent = \$shelf->readfile({file=>${$xmlfile},});
+my $xmlcontent = \$self->readfile({file=>${$xmlfile},});
 if ( ${$xmlcontent}->{'returncode'} !~ /[_]done$/smx ) { return ('missing_xml_file_for_change') ; }
 
 my $oldfield=${$field};
@@ -184,14 +184,14 @@ for my $x (0 .. $#{ ${$xmlcontent}->{'returndata'} } ) {
   }
 }
 
-my $wrrc = \$shelf->writefile({file=>${$xmlfile},content=>\@{ ${$xmlcontent}->{'returndata'} },});
+my $wrrc = \$self->writefile({file=>${$xmlfile},content=>\@{ ${$xmlcontent}->{'returndata'} },});
 
 undef $xmlcontent;
 return ('done');
 }
 
 sub _createxmlfile  {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $xmlpath = \$args->{'dir'};
 my $vdrinfo = \$args->{'vdrinfo'};
 my $dbg = \$args->{'debug'};
@@ -231,11 +231,11 @@ my @tsfiles = ();
 if ( -e "${$xmlpath}/vdrtranscode.ts" )  {
   push @tsfiles , "${$xmlpath}/vdrtranscode.ts" ;
 } else {
-  @tsfiles = $shelf->_get_files_in_dir ({dir=>${$xmlpath},pattern=>'*.ts',});
+  @tsfiles = $self->_get_files_in_dir ({dir=>${$xmlpath},pattern=>'*.ts',});
 }
 # if no .ts files check for .vdr files
 if ( $#tsfiles < 0 ) {
-  @tsfiles = $shelf->_get_files_in_dir ({dir=>${$xmlpath},pattern=>'[0-9]*.vdr',});
+  @tsfiles = $self->_get_files_in_dir ({dir=>${$xmlpath},pattern=>'[0-9]*.vdr',});
 }
 
 if ($#tsfiles >= 0 ) {
@@ -249,11 +249,11 @@ $streamfiles =~ s/^\s//smx ; # remove traling space
 if ($streamfiles) { push @writecontent,"<files>$streamfiles</files>"; }
 #
 for my $w (@writecontent) {
-   $shelf->message({msg=>"_createxmlfile | write | $w" , debug=>${$dbg},v=>'vvv', });
+   $self->message({msg=>"_createxmlfile | write | $w" , debug=>${$dbg},v=>'vvv', });
 }
 
-#my $profiledefaults=\$shelf->getprofile({profile=>'default'});
-#my $p=\$shelf->getprofile({profile=>${$profile},debug=>${$dbg},});
+#my $profiledefaults=\$self->getprofile({profile=>'default'});
+#my $p=\$self->getprofile({profile=>${$profile},debug=>${$dbg},});
 #my @keys = split /\s/smx , ${$profiledefaults}->{'keys'};
 #if ( ${$p}->{'shortname'} ) {
 #  push @writecontent,"<profile name=\"${$p}->{'shortname'}\">";
@@ -267,22 +267,22 @@ for my $w (@writecontent) {
 #    }
 #  }
 #push @writecontent,'</profile>';
-my $wrrc = \$shelf->writefile({file=>"${$xmlpath}/vdrtranscode.xml",content=>\@writecontent,debug=>${$dbg}});
-$shelf->_add_profile({profile=>${$profile},dir=>${$xmlpath},debug=>${$dbg},});
+my $wrrc = \$self->writefile({file=>"${$xmlpath}/vdrtranscode.xml",content=>\@writecontent,debug=>${$dbg}});
+$self->_add_profile({profile=>${$profile},dir=>${$xmlpath},debug=>${$dbg},});
 
 return ('_createxmlfile_done');
 }
 
 sub _add_profile {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $dbg = \$args->{'debug'};
 my $profile=\$args->{'profile'};
 my $xmlpath = \$args->{'dir'};
 
 my @writecontent ;
 
-my $profiledefaults=\$shelf->getprofile({profile=>'default'});
-my $p=\$shelf->getprofile({profile=>${$profile},debug=>${$dbg},});
+my $profiledefaults=\$self->getprofile({profile=>'default'});
+my $p=\$self->getprofile({profile=>${$profile},debug=>${$dbg},});
 my @keys = split /\s/smx , ${$profiledefaults}->{'keys'};
 if ( ${$p}->{'shortname'} ) {
   push @writecontent,"<profile name=\"${$p}->{'shortname'}\">";
@@ -298,12 +298,12 @@ if ( ${$p}->{'shortname'} ) {
   }
 push @writecontent,'</profile>';
 
-my $wrrc = \$shelf->writefile({file=>"${$xmlpath}/vdrtranscode.xml",content=>\@writecontent,options=>'>>',debug=>${$dbg},});
+my $wrrc = \$self->writefile({file=>"${$xmlpath}/vdrtranscode.xml",content=>\@writecontent,options=>'>>',debug=>${$dbg},});
 
 return ('_addprofile_done');
 }
 sub getfromxml {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $file = \$args->{'file'};
 my $field = \$args->{'field'};
 my $block = \$args->{'block'} ;
@@ -312,7 +312,7 @@ my $returnline = {};
 
 if ( ( not ( $field ) ) and ( not ( ${$file} ) ) ) { return ('missing_option_getfromxml'); }
 
-my $content = \$shelf->readfile({file=>${$file},});
+my $content = \$self->readfile({file=>${$file},});
 
 #print Dumper $content;
 if ( ${$content}->{'returncode'} !~ /[_]done$/smx ) { return ('missing_xml_file_to_read') ; }

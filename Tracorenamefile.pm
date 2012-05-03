@@ -4,7 +4,7 @@ package Traco::Tracorenamefile;
 # $Id: Holger Glaess $
 use strict;
 use warnings;
-use Data::Dumper;
+#use Data::Dumper;
 use File::Copy ;
 use English '-no_match_vars';
 use Carp;
@@ -36,18 +36,18 @@ $VERSION = '0.01';
 
 sub new {
 	my ($class,$args) = @_;
-	my $shelf = {};
+	my $self = {};
 	$class = ref($class) || $class;
 	my $d = \$args->{'debug'} ;
-	$shelf->{'debug'} = ${$d};
+	$self->{'debug'} = ${$d};
 	if ( ${$d} ) { print {*STDOUT} "$PROGRAM_NAME | new | uid = $UID\n" or croak $ERRNO; }
-	bless $shelf,$class;
-	return $shelf;
+	bless $self,$class;
+	return $self;
 } # end sub new
 
 
 sub rename_and_store {
-my ($shelf,$args) = @_;
+my ($self,$args) = @_;
 my $d = \$args->{'dir'};
 my $dbg = \$args->{'debug'};
 my $format = \$args->{'filenameformat'};
@@ -61,7 +61,7 @@ if ( not ( ${$format} ) ) { return ('rename_and_store_missing_format'); }
 if ( not ( ${$dstdir} ) ) { return ('rename_and_store_missing_destination_directory'); }
 my $filename = ${$format};
 
-my $vdrinfo = \$shelf->getfromxml({file=>"$dir/vdrtranscode.xml",field=>'ALL',debug=>${$dbg},});
+my $vdrinfo = \$self->getfromxml({file=>"$dir/vdrtranscode.xml",field=>'ALL',debug=>${$dbg},});
 my $x = ${$vdrinfo}->{'pixel'};
 my $y = ${$vdrinfo}->{'ypixel'};
 my $fps = ${$vdrinfo}->{'frames'};
@@ -69,7 +69,7 @@ my $title = ${$vdrinfo}->{'title'};
 my $container = ${$vdrinfo}->{'container'};
 my $res = ${$vdrinfo}->{'resolution'};
 my $destinationfile = q{};
-my $tida = \$shelf->_preparedtime({timeformat=>3,});
+my $tida = \$self->_preparedtime({timeformat=>3,});
 my ($mday,$mo,$year,$hour,$min,$sec) = split /\s/smx , ${$tida};
 
 
@@ -87,19 +87,19 @@ if ( $filename =~ /[%]c/smx ) { $filename =~ s/[%]c/$container/smx ; }
 if ( $filename =~ /[%]vx/smx ) { $filename =~ s/[%]vx/$x/smx ; }
 if ( $filename =~ /[%]vy/smx ) { $filename =~ s/[%]vy/$y/smx ; }
 
-$shelf->message({msg=>"_rename_and_store | $dir | build filename $filename",v=>'vvv',});
+$self->message({msg=>"_rename_and_store | $dir | build filename $filename",v=>'vvv',});
 
 my $sourcefile = q{};
-my @flist = \$shelf->_get_files_in_dir({dir=>$dir,});
+my @flist = \$self->_get_files_in_dir({dir=>$dir,});
 
 foreach my $f (@flist) {
   if (${$f} =~ /vdrtranscode_tmp[.](?:mp4|m4v|mkv)/smx ) {
     $sourcefile = ${$f};
   }
 }
-$shelf->message({msg=>"_rename_and_store | work with $sourcefile",v=>'vvv',});
+$self->message({msg=>"_rename_and_store | work with $sourcefile",v=>'vvv',});
 
-$shelf->message({msg=>"_rename_and_store | copy $sourcefile to ${$dstdir}/$filename",v=>'v',});
+$self->message({msg=>"_rename_and_store | copy $sourcefile to ${$dstdir}/$filename",v=>'v',});
 
 my $z=1;
 while ( -e "${$dstdir}/$filename" ) {
