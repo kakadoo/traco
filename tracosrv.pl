@@ -338,15 +338,16 @@ foreach my $st (@videoqueue) {
 						nice=>$tracoenv->{'nice'},
 					      });
       $traco->message ({msg=>"${$tracotsrc} in $dir",});
-      if ( ${$tracotsrc} !~ /done$/smx ) {
+      if ( ${$tracotsrc} !~ /[_]done$/smx ) {
           $traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
                                         action=>'change',
                                         field=>'status',
                                         to=>'offline',
                                         debug=>$tracoenv->{'debug_flag'},
                                       });
-       	_removelck($dir);                               
       }
+    	_removelck($dir);                               
+
       last;
     }
     when ( /^cutfiles$/smx ) {
