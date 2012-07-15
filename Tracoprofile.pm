@@ -1,4 +1,4 @@
--package Traco::Tracoprofile;
+package Traco::Tracoprofile;
 # $Revision: 00001 $
 # $Source: /home/glaess/perl/vdr/traco/Tracoprofile.pm $
 # $Id: Holger Glaess $
