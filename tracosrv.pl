@@ -223,11 +223,7 @@ for my $v (@videolist) {
   if ( $videopath =~ /^($indir)$/smx ) { next ; }
   # check again if directory exist , maybe delete by osd
   if ( not ( -d $videopath ) ) { next ; };
-  # if $videopath/vdrtranscode.lck exist do next
-  if ( -e "$videopath/vdrtranscode.lck" ) {
-    $traco->message ({msg=>"lck file exist in $videopath",v=>'vvv',});
-    next ;
-  }
+
   # if $videopath/vdrtranscode.xml exist -> read and parse 
   # else read info.(vdr) parse them and  vdrtranscode.xml
   if ( -e "$videopath/vdrtranscode.xml" ) {
@@ -255,6 +251,19 @@ undef @videoqueue;
 return ();
 } # end _main
 
+sub _createlck {
+	my $dir = shift;
+	my $lockfilerc = \$traco->writelockfile({dir=>$dir,});
+	$traco->message ({msg=>"create lockfile  in $dir = ${$lockfilerc}",v=>'v', });
+	return;
+}
+sub _removelck {
+my $dir = shift;
+my $rcunlock = \$traco->removelockfile ({dir=>$dir,});
+$traco->message ({msg=>"remove lockfile in $dir = ${$rcunlock}",v=>'v',});
+return ;
+}
+
 sub _proccessqueue {
 my @videoqueue = @_;
 my $rc = q{};
@@ -263,7 +272,13 @@ my $rc = q{};
 # proccess video by status
 foreach my $st (@videoqueue) {
   my ($dir,$status) = split /\s/smx , $st;
-
+  
+  # if $dir/vdrtranscode.lck exist do nothing
+  if ( -e "$dir/vdrtranscode.lck" ) {
+    $traco->message ({msg=>"lockfile exist in $dir do nothing",v=>'v',});
+    next ;
+  }
+  
  $traco->message ({msg=>"$dir have status $status",v=>'vv',});
   given ($status) {
     # job not edited by vdr ( tracoadm )
@@ -295,8 +310,10 @@ foreach my $st (@videoqueue) {
 					      debug=>$tracoenv->{'debug_flag'},
 					      });
 	if ( ( defined ${$files} ) and ( ${$files} ne q{} ) ) {
+		_createlck($dir);
       $rc=\$traco->_joinfiles({dir=>$dir,files=>${$files},debug=>$tracoenv->{'debug_flag'},});
       if (${$rc} eq 'joindone') {
+      _removelck($dir);
 	$traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
 					action=>'change',
 					field=>'status',
@@ -313,6 +330,7 @@ foreach my $st (@videoqueue) {
       last;
     } # end when joinfiles
     when ( /^prepare_traco_ts$/smx ) {
+		_createlck($dir);
       my $tracotsrc=\$traco->prepare_traco_ts({source=>$dir,debug=>$tracoenv->{'debug_flag'},
 						vdrversion=>$tracoenv->{'vdrversion'},
 						fpstype=>$tracoenv->{'fpstype'},
@@ -327,6 +345,7 @@ foreach my $st (@videoqueue) {
                                         to=>'offline',
                                         debug=>$tracoenv->{'debug_flag'},
                                       });
+       	_removelck($dir);                               
       }
       last;
     }
@@ -335,6 +354,7 @@ foreach my $st (@videoqueue) {
       if ( -e "$dir/marks" ) { $marksfile="$dir/marks";}
       if ( -e "$dir/marks.vdr" ) { $marksfile="$dir/marks.vdr";}
       if ( $marksfile ne q{} ) {
+      _createlck($dir);
       my $cutrc=\$traco->combine_ts ({source=>$dir,
 					      target=>"$dir/vdrtranscode.ts",
 					      debug=>$tracoenv->{'debug_flag'},
@@ -345,6 +365,7 @@ foreach my $st (@videoqueue) {
 					      marksfile=>$marksfile,
 					      });
 	if ( ${$cutrc} eq 'combine_ts_done' ) {
+		_removelck($dir);
 	  $traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
 					action=>'change',
 					field=>'status',
@@ -372,12 +393,14 @@ foreach my $st (@videoqueue) {
       my $trrc = q{};
       my $transcodepid = $daemon->Fork();
       if ( $transcodepid == 0 ) {
+      _createlck($dir);
 	my $prerc = \_preproccess($dir);
 	if (${$prerc} =~ /[_]done$/smx ) {
 	  $trrc = \_transcodevideo ($dir);
 	  $traco->message ({msg=>"return from _transcodevideo $dir = ${$trrc}",});
 	}
 	if (${$trrc} =~ /[_]done$/smx ) {
+	  _removelck($dir);
 	  exit 0; # exit for fork
 	}
       }
@@ -388,12 +411,14 @@ foreach my $st (@videoqueue) {
     when ( /^ready$/smx && $tracoenv->{'daemon_flag'} == 0 ) {
       $videostatus->{$dir} = 'proccessing';
       my $trrc;
+      _createlck($dir);
       my $prerc = \_preproccess($dir);
       if (${$prerc} =~ /[_]done$/smx ) {
 	$trrc = \_transcodevideo ($dir);
 	$traco->message ({msg=>"return from _transcodevideo $dir = ${$trrc}",});
       }
       if (${$trrc} =~ /[_]done$/smx ) {
+      _removelck($dir);
 	_postproccess ({dir=>$dir,debug=>${$config}->{'debug_postproccess'},});
       }
       last;
@@ -425,8 +450,6 @@ $traco->changexmlfile({file=>"$proccessvideodir/vdrtranscode.xml",
 				debug=>$tracoenv->{'debug_flag'},
 				});
 
-my $lockfilerc = \$traco->writelockfile({dir=>$proccessvideodir,});
-$traco->message ({msg=>"write lockfile ${$lockfilerc}",});
 return ('_preproccess_done');
 }
 
@@ -575,12 +598,7 @@ sub _postproccess {
 my $args = shift;
 my $postproccessdir = $args->{'dir'};
 my $dbg = \$args->{'debug'};
-my $returnline = '_postprocces_sdone';
-
-my $rcunlock = \$traco->removelockfile ({dir=>$postproccessdir,});
-$traco->message ({msg=>"_postproccess|remove lck in $postproccessdir = ${$rcunlock}",v=>'v',});
-
-$returnline = ${$rcunlock};
+my $returnline = '_postproccess_done';
 
 
 if ( ${$config}->{'executeafter'} ) {
