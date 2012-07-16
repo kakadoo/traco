@@ -96,7 +96,10 @@ if ( ( not ( defined $workdir ) ) or ( $#options < 0 ) ) {
   print {*STDOUT} "missing path ! or options try --help\n" or croak $ERRNO;
   leave ('_error');
 }
-
+if ( -e "$workdir/vdrtranscode.lck" ) {
+	  print {*STDOUT} "lockfile exist traocadm do nothing\n" or croak $ERRNO;
+     leave ('_error');
+} 
 
 if ( $admenv->{'status'} ) {
     my $rc=\get_set_status ('status',$admenv->{'status'},$workdir);
