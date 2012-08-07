@@ -10,7 +10,7 @@ use Cwd;
 use feature qw/switch/;
 #use File::Find;
 use File::Basename;
-#use Data::Dumper;
+use Data::Dumper;
 use File::Glob ':glob';
 use Fcntl ':flock';
 use Config;
@@ -74,7 +74,9 @@ return ($returnline);
 }
 
 sub _reniceme {
-my $opts = shift;
+my ($self,$opts) = @_;
+print Dumper $opts;
+
      $self->_runexternal({ line=>"renice -n $opts->{'nice'} -p $opts->{'pid'}", debug=>$opts->{'debug_flag'},});
      return;
 }
@@ -265,7 +267,7 @@ my $dbg=\$args->{'debug'};
 my $buffer;
 my $cont;
 #
-$self->_reniceme({ nice=> ${$nice}, pid=> $PID, debug=> ${$dbg} });
+#$self->_reniceme({ nice=> ${$nice}, pid=> $PID, debug=> ${$dbg} });
 
 $self->message ({msg=>"cut file ${$file} ( start = ${$start} / stop = ${$stop} )",debug=>${$dbg},v=>'vvv',}) ;
 #
