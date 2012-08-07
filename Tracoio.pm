@@ -75,7 +75,7 @@ return ($returnline);
 
 sub _reniceme {
 my $opts = shift;
-     $traco->_runexternal({ line=>"renice -n $opts->{'nice'} -p $opts->{'pid'}", debug=>$opts->{'debug_flag'},});
+     $self->_runexternal({ line=>"renice -n $opts->{'nice'} -p $opts->{'pid'}", debug=>$opts->{'debug_flag'},});
      return;
 }
 sub combine_ts {
@@ -265,7 +265,7 @@ my $dbg=\$args->{'debug'};
 my $buffer;
 my $cont;
 #
-_reniceme({ nice=> ${$nice}, pid=> $PID, debug=> ${$dbg} });
+$self->_reniceme({ nice=> ${$nice}, pid=> $PID, debug=> ${$dbg} });
 
 $self->message ({msg=>"cut file ${$file} ( start = ${$start} / stop = ${$stop} )",debug=>${$dbg},v=>'vvv',}) ;
 #
