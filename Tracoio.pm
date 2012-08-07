@@ -72,6 +72,12 @@ my $nice=\$args->{'nice'};
 ####### 
 return ($returnline);
 }
+
+sub _reniceme {
+my $opts = shift;
+     $traco->_runexternal({ line=>"renice -n $opts->{'nice'} -p $opts->{'pid'}", debug=>$opts->{'debug_flag'},});
+     return;
+}
 sub combine_ts {
 my ($self,$args) = @_;
 my $source_ts = \$args->{'source'} ;
@@ -113,6 +119,7 @@ $self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=
 
 my $cutcount = ${$ref_marks}->{'cutcount'}-1;
 
+_reniceme({ nice=> ${$nice}, pid=> $PID, debug=> ${$dbg} });
 
 foreach my $a (0 .. $cutcount) {
 
@@ -258,6 +265,8 @@ my $dbg=\$args->{'debug'};
 my $buffer;
 my $cont;
 #
+_reniceme({ nice=> ${$nice}, pid=> $PID, debug=> ${$dbg} });
+
 $self->message ({msg=>"cut file ${$file} ( start = ${$start} / stop = ${$stop} )",debug=>${$dbg},v=>'vvv',}) ;
 #
 open my $TOFH, '>>:raw', ${$target} or croak $self->message ({msg=>"cannot open ${$target} for writing ... $ERRNO",}) ;

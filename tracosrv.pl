@@ -5,7 +5,7 @@
 # $HeadURL www.glaessixs.de/projekte/vdrtranscode $ 
 # $Date 29/03/2011 $
 
-# some code from vdrtranscode_server.pl from faup@vdr-portal.de
+# some code for tracosrv.pl from faup@vdr-portal.de
 # 2011-02-28
 # great thanks to this superb howto :
 # http://trac.handbrake.fr/wiki/CLIGuide
@@ -25,7 +25,7 @@ use Traco::Traco 0.20;
 # now feature from 5.10
 use feature qw/switch/;
 
-our $VERSION = '0.21';
+our $VERSION = '0.23';
 
 use constant HD => { 1920 => 1080, 1280 => 720, 720 => 480, };
 # declarations
@@ -190,7 +190,7 @@ sub is_running {
 my @plist = $traco->_runexternal({line=>'ps -ax',});
 my @tracop = grep { /tracosrv/smx } @plist;
 if ($#tracop >= 0 ) {
-  print {*STDOUT} "server allready running\n" or croak $ERRNO;
+  print {*STDOUT} "server already running\n" or croak $ERRNO;
   exit 1;
 }
 undef @plist;
@@ -216,7 +216,7 @@ my @videoqueue = ();
 
 # check for vdrtranscode.xml if exist and get status from this video
 for my $v (@videolist) {
-#  my $videofile = basename(${$v});
+#  my $videofie = basename(${$v});
   my $videopath = dirname (${$v});
   $traco->message ({msg=>"proccess queue item $videopath",v=>'vvv',});
   my $indir = $tracoenv->{'indir'};
@@ -250,6 +250,23 @@ undef @videolist;
 undef @videoqueue;
 return ();
 } # end _main
+sub forker {
+my $dir = shift;
+
+      my $trrc = q{};
+      my $forkerpid = $daemon->Fork();
+      if ( $forkerpid == 0 ) {
+      _createlck($dir);
+      $traco->_runexternal({ line=>"renice -n $tracoenv->{'nice'} -p $PID", debug=>$tracoenv->{'debug_flag'},});
+				  
+	if (${$trrc} =~ /[_]done$/smx ) {
+	  _removelck($dir);
+	  exit 0; # exit for fork
+	}
+      }
+      waitpid $forkerpid,0;
+      return;
+}
 
 sub _createlck {
 	my $dir = shift;
