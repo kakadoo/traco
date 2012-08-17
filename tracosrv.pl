@@ -171,6 +171,8 @@ if ( $tracoenv->{'daemon_flag'} == 1) {
     $EUID = $tracoenv->{'vdruid'};
     $UID = $tracoenv->{'vdruid'};
     $traco->message ({msg=>"fork to the background pid $PID with EUID = $EUID",});
+    $traco->_runexternal({ line=>"renice -n $tracoenv->{'nice'} -p $PID", debug=>$tracoenv->{'debug_flag'},});
+
     while (1) {
       runmain ();
       sleep $tracoenv->{'interval'};
@@ -259,7 +261,7 @@ my $dir = shift;
       _createlck($dir);
       $traco->_runexternal({ line=>"renice -n $tracoenv->{'nice'} -p $PID", debug=>$tracoenv->{'debug_flag'},});
 				  
-	if (${$trrc} =~ /[_]done$/smx ) {
+	if ( ${$trrc} =~ /[_]done$/smx ) {
 	  _removelck($dir);
 	  exit 0; # exit for fork
 	}
