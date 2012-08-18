@@ -14,11 +14,10 @@ use strict;
 use warnings;
 use Carp;
 use English '-no_match_vars';
+#use Getopt::Long:
 use Fcntl qw(:flock) ;
 use Proc::Daemon 0.11;
-#use File::Copy ;
 use File::Basename ;
-#use Cwd;
 use Traco::Traco 0.20;
 #use Data::Dumper ;
 
@@ -30,13 +29,12 @@ our $VERSION = '0.23';
 use constant HD => { 1920 => 1080, 1280 => 720, 720 => 480, };
 # declarations
 my $tracoenv = {};
-
-
-
 my $videostatus = {};
+# defaults
 $tracoenv->{'configfile'} = '/etc/vdr/traco.conf' ;
 $tracoenv->{'daemon_flag'} = '1';
 $tracoenv->{'debug_flag'} = '0';
+#$tracoenv->{'verbose_flag'} = q{};
 $tracoenv->{'interval'} = 5 ;
 $tracoenv->{'pidfile'} = '/var/run/vdr/tracosrv.pid';
 $tracoenv->{'setcpu'} = q{};
@@ -52,6 +50,7 @@ my $daemon = Proc::Daemon->new();
 my $mainpid = q{};
 
 # end declarations
+
 
 while ( defined $ARGV[$z] ) {
   given ($ARGV[$z]) {
@@ -103,7 +102,7 @@ if (${$config}->{'fpstype'} ) {
 if ( ${$config}->{'vdr_user'} ) {
   $tracoenv->{'vdruid'} = getpwnam ${$config}->{'vdr_user'};
 } else {
-  $traco->message({msg=>'missing vdr_user in config',}) ;
+  $traco->message({msg=>'missing vdr_user in config file',}) ;
   exit 1;
 }
 
@@ -208,6 +207,7 @@ local $SIG{CHLD} = 'IGNORE' ;
 
 # find info or info.vdr
 # reset on every new main loop
+
 my @videolist = \$traco->getfilelist({dir=>$tracoenv->{'indir'},
 					      skiplinks=>'true',
 					      debug=>${$config}->{'debug_getfilelist'},
@@ -218,7 +218,7 @@ my @videoqueue = ();
 
 # check for vdrtranscode.xml if exist and get status from this video
 for my $v (@videolist) {
-#  my $videofie = basename(${$v});
+#  my $videofile = basename(${$v});
   my $videopath = dirname (${$v});
   $traco->message ({msg=>"proccess queue item $videopath",v=>'vvv',});
   my $indir = $tracoenv->{'indir'};

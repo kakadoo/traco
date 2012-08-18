@@ -9,13 +9,15 @@ use Traco::Tracoio ;
 use Traco::Tracoxml ;
 use Traco::Tracoprofile ;
 use Traco::Tracorenamefile ;
+use Traco::Tracovdr;
+use Traco::Tracohandbrake;
+
 #
 use English '-no_match_vars';
 use Carp;
 
 use IPC::Open3 'open3';
 use feature qw/switch/;
-use File::Find;
 use Sys::Hostname;
 use File::Basename;
 #use Data::Dumper;
@@ -39,15 +41,18 @@ use constant { EINSNULLNULLNULL => 1000,
 
 require Exporter;
 use vars qw($VERSION @ISA @EXPORT_OK);
-use base qw(Exporter Traco::Tracoio Traco::Tracoxml Traco::Tracoprofile Traco::Tracorenamefile);
+use base qw(Exporter Traco::Tracoio Traco::Tracoxml Traco::Tracoprofile Traco::Tracorenamefile Traco::Tracovdr Traco::Tracohandbrake);
 
-@EXPORT_OK = qw(prepare_traco_ts chkvdrversion recalculate_video_bitrate setup parsevdrmarks parsevdrinfo findmyfile _filelist removelockfile writelockfile readlockfile _runexternal parseconfig preparepath message setcpuoptions run_handbrake prepare_crop buildrunline _handbrakeanalyse_cas _parse_config_value);
+#@EXPORT_OK = qw(prepare_traco_ts chkvdrversion recalculate_video_bitrate setup parsevdrmarks parsevdrinfo findmyfile _filelist removelockfile writelockfile readlockfile _runexternal parseconfig preparepath message setcpuoptions run_handbrake prepare_crop buildrunline _handbrakeanalyse_cas _parse_config_value);
+@EXPORT_OK = qw(prepare_traco_ts recalculate_video_bitrate setup findmyfile _filelist removelockfile writelockfile readlockfile _runexternal parseconfig preparepath message setcpuoptions prepare_crop buildrunline _ _parse_config_value);
 
-$VERSION = '0.21';
+$VERSION = '0.22';
 
 #
 # 0.01 inital version
 # 0.21 add _parse_config_value
+# 0.22 split sub to Tracovdr and Tracohandbrake
+#      remove Find::File subs
 #
 
 sub new {
@@ -120,26 +125,7 @@ my $totalframes = ${$info}->{'duration'} * ${$info}->{'frames'};
 
 return ($returncode);
 }
-sub run_handbrake {
-my ($self,$args) = @_;
-my $execline = \$args->{'execline'};
-my $dbg = \$args->{'debug'};
-my $wrlog = \$args->{'writelog'};
-if ( not ( ${$execline} ) ) { return ('noexeclineforhb'); }
 
-my $time_start = \$self->_preparedtime({timeformat=>0,});
-
-  $self->message({msg=>"JOB START -- ${$time_start}",}) ;
-  my $jobresult = \$self->_runexternal({line=>${$execline},debug=>${$dbg},writelog=>${$wrlog},});
-  for my $l (@{ ${$jobresult}->{'returndata'} } ) {
-    $self->message({msg=>"[jobresult]$l",v=>'vvv'});
-  }
-  my $time_end = \$self->_preparedtime({timeformat=>0,});
-  $self->message({msg=>"JOB STOP -- ${$time_end}",}) ;
-undef $time_end;
-undef $time_start;
-return ('hbdone');
-}
 
 sub setup {
 my ($self,$args) = @_;
@@ -235,7 +221,7 @@ foreach my $f (@flist) {
   # skip double entrys
   my @tmp = grep { /\Q$dir/smx } @dirlist;
 
-  if ( ( $#tmp < 0 )  and ( $file =~ /($pattern)/smx ) ) {
+  if ( ( $#tmp < 0 ) and ( $file =~ /($pattern)/smx ) ) {
     $self->message({ msg=>"Vdrtranscode.pm|_getfilelist|add file $file to return hash \@dirlist",debug=>${$debug},v=>'vvvvv',});
     push @dirlist,$file;
   } else {
@@ -248,37 +234,6 @@ undef @flist;
 
 return (@dirlist);
 } # end sub
-
-sub findmyfile {
-my ($self,$args) = @_;
-my $searchpath = \$args->{'dir'};
-my $action = \$args->{'action'};
-my @CA = caller 1;
-if ( $CA[DREI] eq 'main::_runmain' ) {
-  @dirlist = ();
-}
-
-given (${$action}) {
-  when ( /^videolist$/smx ) {
-    find ( \&_filefindforvideolist, ${$searchpath} ) ;
-  }
-  #when ( /^handbrake$/smx ) {
-  #  $self->_filefindgzip({dir=>${$searchpath},}) ;
-  #}
-}
-return (@dirlist);
-} # end sub _getvideolist
-
-sub _filefindforvideolist {
-my $tmpfile = \$File::Find::name ; # make a referenz for save path if a symbolic links
-my $dirname = dirname  ${$tmpfile};
-my $filename = basename ${$tmpfile};
-my @tmp = grep { /\Q$dirname/smx } @dirlist;
-if ( ( $#tmp < 0) and  ($filename =~ /\d+[.](:?vdr|ts)/smx ) ) {
-  push @dirlist , ${$tmpfile} ;
-}
-return ();
-}
 
 sub writelockfile  {
 my ($self,$args) = @_;
@@ -325,83 +280,6 @@ return ($rc);
 }
 
 
-# parsing of marks(.vdr) based on 
-# http://www.vdr-wiki.de/wiki/index.php/Vdr%285%29#MARKS
-sub parsevdrmarks {
-my ($self,$args) = @_;
-my $markspath = \$args->{'dir'};
-my $f = \$args->{'fps'};
-my $fps = ${$f} || '25'; # default 25 fps wenn nix uebergeben wird
-my $duration = \$args->{'duration'};
-
-my $marksfile = \$args->{'marksfile'};
-my $rcdb = {}; # return db
-
-#if ( -e "${$markspath}/marks" ) { $marksfile="${$markspath}/marks";}
-#if ( -e "${$markspath}/marks.vdr" ) { $marksfile="${$markspath}/marks.vdr";}
-#if ($marksfile eq q{} ) { return ('nomarksfound'); }
-
-my $readfile = \$self->readfile({file=>${$marksfile},});
-
-if ( ${$readfile}->{'returncode'} =~ /[_]done$/smx ) {
-# how may cuts availble
-$rcdb->{'cutcount'} = 0;
-$rcdb->{'totalframes'} = 0;
-my $z=0; # starts with line 1
-my $n=0;
-my @content = @{ ${$readfile}->{'returndata'} };
-my ( $hour , $minute , $sec , $frame ) = q{};
-while ($#content >= $z) {
-  if ($content[$z] ) {
-   ( $hour , $minute , $sec , $frame ) = $content[$z] =~ /(\d+):(\d+):(\d+).(\d+)/smx ;
-    my $time_in_seconds = ( ( $hour * DREISECHSNULLNULL ) + ( $minute * SECHSNULL ) + $sec ) ;
-    my $overall_fps = ( $time_in_seconds * $fps ) + $frame ;
-    $rcdb->{"start_fps$n"} = $overall_fps;
-    #$rcdb->{"option_start_frame$n"} = "--start-at frame:$overall_fps";
-    $rcdb->{"start_time$n"} = $time_in_seconds;
-#    $rcdb->{"start_frame$n"} = $frame;
-    $z=$z+2;
-    $n++;
-  }
-}
-$z=1; # starts with line 2
-$n=0;
-( $hour , $minute , $sec , $frame ) = q{};
-while  ($#content >= $z) {
-  ( $hour , $minute , $sec , $frame ) = $content[$z] =~ /(\d+):(\d+):(\d+).(\d+)/smx ;
-  my $time_in_seconds = ( ( ( $hour * SECHSNULL ) * SECHSNULL ) + ( $minute * SECHSNULL ) + $sec ) ;
-  my $overall_fps = ( $time_in_seconds * $fps ) + $frame ;
-  $rcdb->{"stop_fps$n"} = $overall_fps;
-  #$rcdb->{"option_stop_frame$n"} = "--stop-at frame:$overall_fps";
-  $rcdb->{"stop_time$n"} = $time_in_seconds;
-#  $rcdb->{"stop_frame$n"} = $frame;
-  if ( $rcdb->{"start_fps$n"} ) { $rcdb->{'cutcount'} = $rcdb->{'cutcount'}+1; }
-  $z=$z+2;
-  $n++;
-}
-undef @content;
-} # if _done
-
-# calculate from all cuts the total frame count
-if ( $rcdb->{'cutcount'} >= 0 ) { # markers used
-for my $y (0 .. $rcdb->{'cutcount'} ) {
-  if ( ( $rcdb->{"start_fps$y"} ) and ( $rcdb->{"stop_fps$y"} ) ) {
-    my  $param_stop = $rcdb->{"stop_fps$y"} - $rcdb->{"start_fps$y"} ;
-    $rcdb->{'totalframes'} = $param_stop + $rcdb->{'totalframes'}  ;
-  }
-}
-}
-
-if ( $rcdb->{'cutcount'} <= 0 ) { # no markers used 
-  my ( $hour , $minute , $sec ) = ${$duration} =~ /(\d+):(\d+):(\d+)/smx;
-  $rcdb->{'totalframes'} = ( ( ( $hour * SECHSNULL * SECHSNULL ) + ( $minute * SECHSNULL ) + $sec ) * $fps ) ;
-  $self->message({msg=>"[no markers found]\$totalframes are $rcdb->{'totalframes'}",verbose=>'vvv',}) ;
-}
-
-
-undef $readfile;
-return ($rcdb);
-} # end sub parsevdrmarks 
 
 sub buildrunline {
 my ($self,$args) = @_;
@@ -482,322 +360,6 @@ undef $hba;
 
 $self->message({msg=>"[buildrunline]runline = $runline",v=>'vvv',debug=>${$dbg},}) ;
 return ($runline);
-}
-sub prepare_audio_tracks {
-my ($self,$args) = @_;
-my $audiotrack = \$args->{'audiotrack'}; # can be ALL or FIRST
-my $hbanalyse = \$args->{'hbanalyse'};
-my $dbg = \$args->{'debug'};
-my $kbps = \$args->{'kbps'};
-my $drc=\$args->{'drc'};
-my $aac_bitrate=\$args->{'aac_bitrate'};
-
-my $hbopts = {};
-$hbopts->{'ac3tracks'} = '0';
-$hbopts->{'mp2tracks'} = '0';
-$hbopts->{'audiobitrate'} = q{};
-$hbopts->{'audioencoder'} = q{};
-$hbopts->{'audionormalizer'} = q{};
-$hbopts->{'lang'} = q{};
-$hbopts->{'kbps'} = q{};
-given (${$audiotrack}) {
-  when ( /^(?:first|FIRST)$/smx ) {
-    $self->message ({msg=>'[prepare_audio_tracks]use just the first audiotrack',v=>'vvv',debug=>${$dbg},});
-    $hbopts->{'audiotracks'} = 1;
-    if  (exists ${$hbanalyse}->{'audiotrack[0]options'} ) {
-    my $audiotrackoptions = ${$hbanalyse}->{'audiotrack[0]options'};
-    $hbopts->{'lang'} = $audiotrackoptions->{'lang'};
-    if ($audiotrackoptions->{'codec'} =~ /mp2/smx ) {
-      $hbopts->{'mp2tracks'}++;
-      $hbopts->{'audioencoder'} = 'faac';
-#      $hbopts->{'audiobitrate'} = ${$config}->{'AAC_Bitrate'};
-#      $hbopts->{'audionormalizer'} = ${$config}->{'DRC'};
-      $hbopts->{'audiobitrate'} = ${$aac_bitrate};
-      $hbopts->{'audionormalizer'} = ${$drc};
-    } elsif ( $audiotrackoptions->{'codec'} =~ /AC3/smx ) {
-      $hbopts->{'ac3tracks'}++;
-      $hbopts->{'audioencoder'} = 'copy';
-      $hbopts->{'audiobitrate'} = 'auto';
-      $hbopts->{'audionormalizer'} = '1.0';
-      $hbopts->{'kbps'} = $audiotrackoptions->{'bitrate'} ;
-    }
-    }
-  } # end when first
-  when ( $_ =~ /^(?:all|ALL)$/smx ) {
-    $self->message ({msg=>'[prepare_audio_tracks] use all audiotracks',v=>'vvv',debug=>${$dbg},});
-    my $audiotracks = ${$hbanalyse}->{'audiotracks'} -1;
-    foreach my $i ( 0 ..$audiotracks ) {
-    if (exists ${$hbanalyse}->{"audiotrack[$i]options"} ) {
-    my $audiotrackoptions = ${$hbanalyse}->{"audiotrack[$i]options"};
-      if ($audiotrackoptions->{'codec'} =~ /mp2/smx ) {
-	$hbopts->{'mp2tracks'}++;
-	my $t=$i+1;
-	$hbopts->{'audiotracks'} .= "$t,";
-	$hbopts->{'lang'} .= "$audiotrackoptions->{'lang'},";
-	$hbopts->{'audioencoder'} .= 'faac,';
-      $hbopts->{'audiobitrate'} = "${$aac_bitrate},";
-      $hbopts->{'audionormalizer'} = "${$drc},";
-#	$hbopts->{'audiobitrate'} .= "${$config}->{'AAC_Bitrate'},";
-#	$hbopts->{'audionormalizer'} .= "${$config}->{'DRC'},";
-      } elsif ( $audiotrackoptions->{'codec'} =~ /AC3/smx ) {
-	$hbopts->{'ac3tracks'}++;
-	my $t=$i+1;
-	$hbopts->{'audiotracks'} .= "$t,";
-	$hbopts->{'audioencoder'} .= 'copy,';
-	$hbopts->{'audiobitrate'} .= 'auto,';
-	$hbopts->{'audionormalizer'} .= '1.0,';
-	$hbopts->{'lang'} .= "$audiotrackoptions->{'lang'},";
-	$hbopts->{'kbps'} .= "$audiotrackoptions->{'bitrate'}," ;
-      }
-    }
-    }
-  } # end when all
-} # end given $atracks_cmd
-
-if ( $hbopts->{'audiotracks'} ) { $hbopts->{'audiotracks'} =~ s/[,]$//smx ; }
-if ( $hbopts->{'audiobitrate'} ) { $hbopts->{'audiobitrate'} =~ s/[,]$//smx ; }
-if ( $hbopts->{'audioencoder'} ) { $hbopts->{'audioencoder'} =~ s/[,]$//smx ; }
-if ( $hbopts->{'audionormalizer'} ) { $hbopts->{'audionormalizer'} =~ s/[,]$//smx ; }
-if ( $hbopts->{'lang'} ) { $hbopts->{'lang'} =~ s/[,]$//smx ; }
-if ( $hbopts->{'kbps'} ) { $hbopts->{'kbps'} =~ s/[,]$//smx ; }
-
-return ($hbopts);
-}
-
-# parsing of info.(vdr) based on 
-# http://www.vdr-wiki.de/wiki/index.php/Info.vdr
-sub parsevdrinfo {
-my ($self,$args) = @_;
-my $wrkdir = \$args->{'dir'};
-my $dbg = \$args->{'debug'};
-my $file = \$args->{'infofile'};
-
-my $infofile = q{};
-my $rcdb = {}; # return db
-my $atrack = 0;
-my $infopath = ${$wrkdir};
-
-if ( -e "$infopath/info" ) { $infofile="$infopath/info";}
-if ( -e "$infopath/info.vdr" ) { $infofile="$infopath/info.vdr";}
-if ( ${$file} ) { $infofile = ${$file} ; }
-
-#if ($infofile eq q{}) { return () };
-
-my $content = \$self->readfile({file=>$infofile,});
-if ( ${$content}->{'returncode'} !~ /[_]done$/smx ) { return ('info_file_not_found') ; };
-
-foreach my $i ( @{ ${$content}->{'returndata'} } ) {
-  given ($i) {
-    # video
-    when ( $_ =~ /^T\s/smx ) {
-      my (undef,$title) = split /^[T]\s/smx ,$_;
-      while ($title =~ /\s/smx ) {
-	$title =~ s/\s/_/smx ;
-      }
-      $rcdb->{'title'} = $title;
-    }
-    when ( $_ =~ /^X\s[1]\s[0](?:[1]|[5])\s/smx ) {
-      $rcdb->{'aspect'} = '4:3';
-      $rcdb->{'HD'} = q{} ;
-    }
-    when ( $_ =~ /^X\s[1]\s[0](?:[2]|[3]|[6]|[7])\s/smx ) {
-      $rcdb->{'aspect'} = '16:9';
-      $rcdb->{'HD'} = q{} ;
-    }
-    when ( $_ =~ /^X\s[1]\s[0](?:[4]|[8])\s/smx ) {
-      $rcdb->{'aspect'} = '>16:9';
-      $rcdb->{'HD'} = q{} ;
-    }
-    when ( $_ =~ /^X\s[1]\s[0](?:[9]|[D])\s/smx ) {
-      $rcdb->{'aspect'} = '4:3';
-      $rcdb->{'HD'} = 'true' ;
-    }
-    when ( $_ =~ /^X\s[1]\s[0](?:[A]|[B]|[E]|[F])\s/smx ) {
-      $rcdb->{'aspect'} = '16:9';
-      $rcdb->{'HD'} = 'true' ;
-    }
-    when ( $_ =~ /^X\s[1]\s(?:[0][C]|[1][0])\s/smx ) {
-      $rcdb->{'aspect'} = '>16:9';
-      $rcdb->{'HD'} = 'true' ;
-    }
-    # audio
-    when ( $_ =~ /^X\s[2]\s[0][1]\s/smx ) {
-      $rcdb->{"audiotrack$atrack"} = 'mono';
-      $atrack++;
-    }
-    when ( $_ =~ /^X\s[2]\s[0][3]\s/smx ) {
-      $rcdb->{"audiotrack$atrack"} = 'stereo';
-      $atrack++;
-    }
-    when ( $_ =~ /^X\s[2]\s[0][5]\s/smx ) {
-      $rcdb->{"audiotrack$atrack"} = 'dolby digital';
-      $atrack++;
-    }
-    when ( $_ =~ /^E\s\d+\s\d+\s\d+/smx ) {
-      my (undef,$id,$stati,$stoti,undef,undef) = split /\s/smx , $_;
-      $rcdb->{'idnr'}= $id ;
-      $rcdb->{'starttime'} = $stati ;
-      $rcdb->{'duration'} = $stoti ;
-    }
-    when ( $_ =~ /^F\s\d{2,3}$/smx ) {
-      my (undef,$frames) = split /\s/smx , $_;
-      $rcdb->{'frames'}= $frames ;
-    }
-    when ( $_ =~ /^V\s\d+$/smx ) {
-      my (undef,$vps) = split /\s/smx , $_;
-      $rcdb->{'vpstime'}= $vps ;
-    }
-  } # end given
-} # end foreach @content
-return ($rcdb);
-}
-
-sub handbrakeanalyse {
-my ($self,$args) = @_;
-my $file = \$args->{'file'};
-my $dbg = \$args->{'debug'};
-my $mynice = \$args->{'nice'};
-my $handbrake = \$args->{'handbrake'};
-my $kbps = \$args->{'kbps'};
-my $starttime=\$args->{'starttime'};
-my $fpstype=\$args->{'fpstype'};
-my $audiotrack = \$args->{'audiotrack'};
-my $drc=\$args->{'drc'};
-my $aac_bitrate=\$args->{'aac_bitrate'};
-
-
-#my $returndb = {};
-my @tmpdb2;
-# prepare & in path
-my $workfile = ${$file} ;
-$workfile =~ s/[&]/\\&/gmisx ;
-
-my $runline = "nice -n ${$mynice} ${$handbrake} --scan";
-if ( ${$starttime} )  { $runline .= " --start-at duration:${$starttime}"; }
-$runline .= " -i $workfile -o /dev/null -t 0 2>&1";
-my $analyse = $self->_runexternal({line=>$runline,debug=>${$dbg},});
-
-# first cut out just lines with the leading + 
-my @tmpdb = grep { /(?:^|(?:\s+|\t+))[+]\s/smx } @{$analyse->{'returndata'}};
-
-# remove trailing +
-# beachte map veraendert per default nicht den interen $_
-@tmpdb = map { do { (my $a = $_) =~ s/(?:^|(?:\s+|\t+))[+]\s+//smx; $a } } @tmpdb ;
-## now prepare and add the lines for returndb without ,
-@tmpdb2 = map { split /[,](?:\s+|\t+)/smx,$_ } @tmpdb;
-my $pattern1 = '(?:size|pixel\saspect|display\saspect|autocrop|duration)';
-my @stage1options = grep { /^($pattern1)[:]\s/smx } @tmpdb2;
-my @stage3options = grep { /fps/smx } @tmpdb2;
-
-# prepare Chapter , Audio , Subtitle
-my $returndb = $self->_handbrakeanalyse_cas({cas=>\@tmpdb,kbps=>${$kbps},debug=>${$dbg},});
-
-$returndb->{'audioopts'} = $self->prepare_audio_tracks({audiotrack=>${$audiotrack},
-  hbanalyse=>$returndb,
-  kbps=>${$kbps},
-  drc=>${$drc},
-  aac_bitrate=>${$aac_bitrate},
-  audiotrack=>${$audiotrack},
-  debug=>${$dbg},});
-
-for my $o (@stage1options) {
-    my ($key,$value) = split /[:]\s/smx, $o;
-    $returndb->{$key} = $value || q{};
-}
-
-for my $o (@stage3options) {
-    my ($value,$key) = split /\s/smx ,$o;
-    if ( ( $key eq 'fps' ) and ( $value =~ /^\d+.\d+/smx ) ) { $value = sprintf '%.f' , $value; } # handbrake accept only ganzzahl as frame
-    $returndb->{$key} = $value || q{};
-}
-
-if (${$fpstype} =~ /^(?:vdr|VDR)$/smx ) {
-  my $dir = dirname ${$file};
-  my $vdrfps = \$self->getfromxml({file=>"$dir/vdrtranscode.xml",
-				      field=>'frames',
-					block=>'vdrinfo',
-					debug=>${$dbg},
-					});
-  $returndb->{'fps'} = ${$vdrfps}->{'frames'};
-}
-
-return ($returndb);
-}
-sub _handbrakeanalyse_cas {
-my ($self,$args) = @_;
-my @tmpdb = @{$args->{'cas'}};# cas = ChapterAudioSubtitle
-my $kbps=\$args->{'kbps'};
-my $dbg=\$args->{'debug'};
-my $returndb ;
-my $z = 0;
-my $chapters=0;
-my $audiotracks=0;
-my $subtitle=0;
-
-while ($#tmpdb >= $z) {
-# handle chapters
-  if ($tmpdb[$z] =~ /chapters[:]/smx .. $tmpdb[$z] !~ /audio\stracks[:]/smx ) {
-    my $a=$z+1;
-    while ( ( exists $tmpdb[$a] ) and ( $tmpdb[$a] !~ /audio\stracks[:]/smx ) ) {
-      $tmpdb[$a] =~ s/^\d+[:]\s//smx ; # remove trailling  digit(s):
-      $returndb->{"chapter[$chapters]"} = $tmpdb[$a] || q{};
-      $chapters++;
-      $a++;
-    }
-  }
-  # handle audiotracks
-  if ($tmpdb[$z] =~ /audio\stracks[:]/smx .. $tmpdb[$z] !~ /subtitle\stracks[:]/smx ) {
-    my $a=$z+1;
-    while ( ( exists $tmpdb[$a] ) and ( $tmpdb[$a] !~ /subtitle\stracks[:]/smx ) ) {
-      $tmpdb[$a] =~ s/^\d+[,]\s//smx ; # remove trailling  digit(s),
-
-      my $audiodb = \$self->_prepareaudiooptions ({line=>$tmpdb[$a],kbps=>${$kbps},debug=>${$dbg},});
-      
-      $returndb->{"audiotrack[$audiotracks]"} = $tmpdb[$a] || q{};
-      $returndb->{"audiotrack[$audiotracks]options"} = ${$audiodb};
-      $audiotracks++;
-      $returndb->{'audiotracks'} = $audiotracks;
-      $a++;
-    }
-  }
-  # handle subtitle
-   if ($tmpdb[$z] =~ /subtitle\stracks[:]/smx .. $tmpdb[$z] !~ /HandBrake\shas\sexited/smx ) {
-    my $a=$z+1;
-    while ( ( exists $tmpdb[$a] ) and ( $tmpdb[$a] !~ /HandBrake\shas\sexited/smx ) ) {
-      $tmpdb[$a] =~ s/^\d+[:]\s//smx ; # remove trailling  digit(s),
-      $returndb->{"subtitle[$subtitle]"} = $tmpdb[$a] || q{};
-      $subtitle++;
-      $a++;
-    }
-  }
-  $z++;
-}
-
-return ($returndb);
-}
-
-sub _prepareaudiooptions {
-my ($self,$args) = @_;
-my $line = \$args->{'line'};
-my $inkbps = \$args->{'kbps'};
-my $returndb = {};
-
-my ($baseline,$frequenz,$bitrate) = split /[,]\s/smx , ${$line};
-if ( $frequenz ) { $frequenz =~ s/[H][z]$//smx; } # remove Hz 
-if ( $bitrate ) { $bitrate =~ s/[b][p][s]$//smx ; } # remove bps 
-
-
-my ( $lang , $codec ,$audiotype ,$isolang ) = $baseline =~ /^(\w+)\s+[(](\w+)[)]\s+[(](.+)[)]\s+[(](.+)[)]/smx ;
-if ( ( $codec eq 'AC3') and ( ${$inkbps} ) ) {
-  $bitrate = $bitrate / EINSNULLNULLNULL ;
-}
-$returndb->{'lang'} = $lang;
-$returndb->{'codec'} = $codec;
-$returndb->{'audiotype'} = $audiotype;
-$returndb->{'isolang'} = $isolang;
-$returndb->{'bitrate'} = $bitrate;
-$returndb->{'frequenz'} = $frequenz;
-return ($returndb);
 }
 
 sub setcpuoptions {
@@ -1008,6 +570,7 @@ if ( ${$lines}->{'returncode'} !~ /[_]done$/smx ) {
   undef $lines;
 return $config;
 }
+
 sub _parse_config_value {
 my ($self,$args) = @_;
 my $value = \$args->{'value'};
@@ -1019,29 +582,6 @@ if ( ${$value} =~ /^(?:no|NO|[0]|false|false)$/smx ) { $rc = undef; };
 #if ( ${$value} =~ /^(?:yes|YES|[1]|true|TRUE)$/smx ) { $rc = ${$value} };
 
 return ($rc);
-}
-sub chkvdrversion {
-my ($self,$args) = @_;
-my $debug = \$args->{'debug'};
-my $dir = \$args->{'dir'};
-my $type = \$args->{'type'};
-
-if ( not ( defined ${$type} ) ) { return ('notypeforchkvdrversion'); }
-my $returnline = q{};
-
-given (${$type}) {
-  when ( /^prg$/smx ) {
-    my $runexternal = \$self->_runexternal({line=>'vdr -V | grep -E vdr',debug=>${$debug},}); # eg. vdr (1.7.18/1.7.18) - The Video Disk Recorder
-    for my $v (@{ ${$runexternal}->{'returndata'}} ) {
-      if ( $v =~ /[(]1[.]7[.]/smx )  { $returnline = '1.7'; }
-      if ( $v =~ /[(]1[.]6[.]/smx )  { $returnline = '1.6'; }
-    }
-    undef $runexternal;
-  }
-  when ( /^file$/smx ) {
-  }
-}
-return ($returnline);
 }
 
 sub preparepath {
