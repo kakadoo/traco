@@ -149,6 +149,7 @@ if (${$vl}) {
 
 return ();
 }
+
 sub _preparedtime {
 my ($self,$args) = @_;
 my $tif = \$args->{'timeformat'};
