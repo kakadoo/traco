@@ -10,7 +10,7 @@ use Cwd;
 use feature qw/switch/;
 #use File::Find;
 use File::Basename;
-use Data::Dumper;
+#use Data::Dumper;
 use File::Glob ':glob';
 use Fcntl ':flock';
 use Config;
@@ -75,7 +75,7 @@ return ($returnline);
 
 sub reniceme {
 my ($self,$args) = @_;
-print Dumper $args;
+# print Dumper $args;
 
      $self->_runexternal({ line=>"renice -n $args->{'nice'} -p $args->{'pid'}", debug=>$args->{'debug_flag'},});
      return;
@@ -127,8 +127,8 @@ foreach my $a (0 .. $cutcount) {
 
 my $startframe = ${$ref_marks}->{"start_fps$a"};
 my $stopframe = ${$ref_marks}->{"stop_fps$a"};
-my ($sta,$staf) = \$self->_getoffset({frame=>$startframe,index=>$indexfile,vdrversion=>$vdrversion,});
-my ($sto,$stof) = \$self->_getoffset({frame=>$stopframe,index=>$indexfile,vdrversion=>$vdrversion,});
+my ($sta,$staf) = \$self->_getoffset({frame=>$startframe,index=>$indexfile,vdrversion=>$vdrversion,debug=>${$dbg},});
+my ($sto,$stof) = \$self->_getoffset({frame=>$stopframe,index=>$indexfile,vdrversion=>$vdrversion,debug=>${$dbg},});
 $start->{"pos$a"} = ${$sta};
 $start->{"file$a"} = ${$staf};
 
@@ -171,7 +171,7 @@ if ( $filea == $fileb ) {
     debug=>${$dbg},
  });
   $wrkfile = q{};
- # logik wenn fileb nicht die direkte folgen nummer ist sprich 1 != 5 z.b
+ # logik wenn fileb nicht die direkte folge nummer ist sprich 1 != 5 z.b
  if (${$rc1} eq '_cutfile_done') {
   if ( ( $filea + 1 ) == $fileb ) {
   # cutpart two
@@ -238,10 +238,11 @@ my $source_dir = \$args->{'dir'};
 my $fileno = \$args->{'fileno'};
 my $start_ts = q{};
 my $vdrversion = '1.7';
+my $dbg=\$args->{'debug'};
 my @filelist=\$self->_get_files_in_dir ({dir=>${$source_dir},});
 
 foreach my $f (@filelist) {
-#print "${$f} ${$fileno}\n";
+	$self->message({msg=>"_get_filename_by_cutnumber | ${$f} ${$fileno}",v=>'vvv',debug=>${$dbg]},});
   if (${$f} =~ /(${$fileno})[.]vdr$/smx ) {
     $start_ts = ${$f};
     $vdrversion = '1.6';
@@ -305,39 +306,64 @@ my $f = \$args->{'frame'};
 my $frame = ${$f}-1;
 my $index = \$args->{'index'};
 my $startpos = ACHT * $frame ;
-my $vdrv=\$args->{'vdrversion'};
+#my $vdrv=\$args->{'vdrversion'};
 my $platform=$Config{'archname'};
 my $defaultunpack = 'issQ' ; # lssQ 64 bit perl version for vdr 1.7
-my $defaultversion = '1.7';
-if ( ${$vdrv} ) { $defaultversion = ${$vdrv} ; }
+my $defaultversion = $args->{'vdrversion'} || '1.7';
+my $dbg=\$args->{'debug'};
+
+#if ( $args->{'vdrversion'} ) { $defaultversion = ${$vdrv} ; }
 
 if ($defaultversion =~ /^1[.]6$/smx ) {
   $defaultunpack = 'icci';
 }
+if ( ( $platform =~ /i486/smx ) and ( $defaultversion =~ /^1[.]7$/smx ) ) {
+  $defaultunpack = 'iccS';
+}
 
 if ( not ( ${$index} ) ) { return ('index not found in _getoffset'); }
-my ($byteoffset,$byteoffset2,$filenumber,$frametype);
+
+my ($byteoffset,$byteoffset1,$byteoffset2,$filenumber,$frametype);
 
 my $buffer = \$self->_readindex({index=>${$index},frame=>$startpos,});
 
 
-if ( ( $platform =~ /i486/smx ) and ( $defaultversion =~ /^1[.]7$/smx ) ) {
- ($byteoffset,$byteoffset2,$frametype,$filenumber,undef) = unpack 'iccS', ${$buffer}; # lssLL alt
-#print "offset $byteoffset\n";
-#print "offset1 $byteoffset1\n";
-#print "offset2 $byteoffset2\n";
-#print "frametype $frametype\n";
-#print "fileno $filenumber\n";
+given ( $defaultunpack ) {
+   when ( /^iccS$/smx ) {
+      ($byteoffset,$byteoffset2,$frametype,$filenumber,undef) = unpack 'iccS' , ${$buffer}; # lssLL alt
+        if ($byteoffset2 > 0 ) {
+	  use bigint;
+	  $byteoffset += DREIZWEI * $byteoffset2;
+	}
+   }
+    when ( /^icci$/smx ) {
+      ($byteoffset,$frametype,$filenumber,undef) = unpack 'icci' , ${$buffer};
+   }
+    when ( /^iccQ$/smx ) {
+      ($byteoffset,$frametype,$filenumber,undef) = unpack 'iccQ' , ${$buffer};
+   }
+}
+
+#if ( ( $platform =~ /i486/smx ) and ( $defaultversion =~ /^1[.]7$/smx ) ) {
+# ($byteoffset,$byteoffset2,$frametype,$filenumber,undef) = unpack 'iccS', ${$buffer}; # lssLL alt
+#
+#  if ($byteoffset2 > 0 ) {
+#    use bigint;
+#    $byteoffset += DREIZWEI * $byteoffset2;
+#  }
+#} else {
+#  ($byteoffset,$frametype,$filenumber,undef) = unpack 'icci' , ${$buffer};
+#}
+
+	$self->message({msg=>"offset $byteoffset",v=>'vvv',debug=>${$dbg},});
+	$self->message({msg=>"offset1 $byteoffset1",v=>'vvv',debug=>${$dbg},});
+	$self->message({msg=>"offset2 $byteoffset2",v=>'vvv',debug=>${$dbg},});
+	$self->message({msg=>"frametype $frametype",v=>'vvv',debug=>${$dbg},});
+	$self->message({msg=>"fileno $filenumber",v=>'vvv',debug=>${$dbg},});
+
 #my $test += 32*$byteoffset2;
 #print "$test\n";
-  if ($byteoffset2 > 0 ) {
-    use bigint;
-    $byteoffset += DREIZWEI * $byteoffset2;
-  }
 
-} else {
-  ($byteoffset,$frametype,$filenumber,undef) = unpack $defaultunpack, ${$buffer};
-}
 
 return ($byteoffset,$filenumber);
 }
@@ -360,13 +386,13 @@ my ($self,$args) = @_;
 my $dir = \$args->{'dir'};
 my $dbg = \$args->{'debug'};
 my $files = \$args->{'files'};
-my $destfile = \$args->{'destination'};
+my $destinationfile = $args->{'destination'} || 'vdrtranscode.ts';
 
-my $destinationfile='vdrtranscode.ts';
+#my $destinationfile='vdrtranscode.ts';
+#if (${$destfile}) {
+#  $destinationfile = ${$destfile};
+#}
 
-if (${$destfile}) {
-  $destinationfile = ${$destfile};
-}
 my $buffer;
 my $copied;
 my $fh_out;
@@ -377,16 +403,14 @@ if ( ${$files} =~ /\s/smx ) {
   push @infiles,${$files};
 }
 
-my $opentype = '>:raw';
+my $wrmode = '>>:raw';
 
-if ( -e "${$dir}/$destinationfile" ) {
-  $opentype = '>>:raw';
-}
+if ( -e "${$dir}/$destinationfile" ) { return ('_joinfiles vdrtranscode.ts exists'); }
 
 for my $file (@infiles) {
     if ( $file eq q{} ) { next ;};
     $self->message ({msg=>"[joinfiles]proccess ${$dir}/$file",debug=>${$dbg},v=>'vvv',});
-    open $fh_out, $opentype , "${$dir}/$destinationfile" or croak "can't open ${$dir}/$destinationfile $ERRNO";
+    open $fh_out, $wrmode , "${$dir}/$destinationfile" or croak "can't open ${$dir}/$destinationfile $ERRNO";
     open my $fh_in, '<:raw', "${$dir}/$file" or croak "can't open ${$dir}/$file $ERRNO";
     while ($copied = read $fh_in, $buffer, BUFFERSIZE) {
         print {$fh_out} $buffer or croak "can't write to ${$dir}/$destinationfile $ERRNO";
