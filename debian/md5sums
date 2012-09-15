@@ -1,0 +1,9 @@
+d73e801397478c965b5f2da581ca1964  /home/vdr/debian/traco/usr/bin/tracoadm.pl
+c7d6d10fb5543bcfa72ba83016bdec4e  /home/vdr/debian/traco/usr/bin/tracosrv.pl
+9666dcdcd8bc858cc1667c8d394607d9  /home/vdr/debian/traco/usr/lib/perl5/Traco/Traco.pm
+a5be2a311676a0abd9242446a673d38d  /home/vdr/debian/traco/usr/lib/perl5/Traco/Tracoio.pm
+46f16f63cab8f3f72f43475bff7007c4  /home/vdr/debian/traco/usr/lib/perl5/Traco/Tracoxml.pm
+75e0fdd6dd82712207e13b23003d438a  /home/vdr/debian/traco/usr/lib/perl5/Traco/Tracoprofile.pm
+e51ed9d378a42340e68da9318a3f5422  /home/vdr/debian/traco/usr/lib/perl5/Traco/Tracorenamefile.pm
+145454291ae0db96e0f1c0f9a6dc077b  /home/vdr/debian/traco/etc/vdr/traco.conf.sample
+45856d0e2f23beb03d23d28fcc125c56  /home/vdr/debian/traco/etc/vdr/command-hooks/reccmds.traco.conf.sample

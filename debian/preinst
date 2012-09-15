@@ -1,0 +1,33 @@
+#!/bin/sh
+
+set -e
+
+tracoconf=/etc/vdr/traco.conf.sample
+tracoreccmds=/etc/vdr/command-hooks/reccmds.traco.conf.sample
+
+case "$1" in
+    install|upgrade)
+
+    if test -e $tracoconf ; then
+        rm -rf $tracoconf  || true
+    fi
+
+    if test -e $tracoreccmds ; then
+        rm -rf $tracoreccmds || true
+    fi
+
+    ;;
+
+    abort-upgrade)
+    ;;
+
+    *)
+        echo "preinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+
+
+exit 0
+

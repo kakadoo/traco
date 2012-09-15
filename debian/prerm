@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+if [ -x "/etc/init.d/tracosrv.sh" ]; then
+	invoke-rc.d tracosrv.sh stop || exit $?
+fi
+

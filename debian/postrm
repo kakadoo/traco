@@ -1,0 +1,40 @@
+#! /bin/sh
+# postrm script for vdr-plugin-#PACKAGE#
+#
+# see: dh_installdeb(1)
+
+set -e
+
+# summary of how this script can be called:
+#        * <postrm> `remove'
+#        * <postrm> `purge'
+#        * <old-postrm> `upgrade' <new-version>
+#        * <new-postrm> `failed-upgrade' <old-version>
+#        * <new-postrm> `abort-install'
+#        * <new-postrm> `abort-install' <old-version>
+#        * <new-postrm> `abort-upgrade' <old-version>
+#        * <disappearer's-postrm> `disappear' <r>overwrit>r> <new-version>
+# for details, see http://www.debian.org/doc/debian-policy/ or
+# the debian-policy package
+
+
+case "$1" in
+    purge)
+        rm -f /etc/vdr/traco.conf.sample > /dev/null 2>&1 || true
+        rm -f /etc/vdr/command-hooks/reccmds.traco.conf.sample  > /dev/null 2>&1 || true
+    ;;
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+    ;;
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+
+if [ "$1" = "purge" ] ; then
+	update-rc.d tracosrv.sh remove >/dev/null
+fi
+
+
+exit 0

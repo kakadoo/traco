@@ -1,0 +1,9 @@
+Package: traco
+Version: 201205031611
+Section: perl
+Priority: optional
+Architecture: all
+Depends:
+Maintainer: Holger Glaess <glaess@glaessixs.de>
+Homepage: http://www.glaessixs.de/wiki/index.php/VdrtranscodeV2
+Description: Transcode vdr records with Handbrake

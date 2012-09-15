@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# holger glaess 12.2011
+
+ACTION=$1
+if [ "$ACTION" = "configure" ] ; then
+	if [ -d /usr/share/cdr/command-hooks ] ; then
+		mv /etc/vdr/command-hooks/reccmds.traco.conf.sample /usr/share/vdr/command-hooks
+		ln -s /usr/share/vdr/command-hooks/reccmds.traco.conf.sample /etc/vdr/command-hooks/reccmds.traco.conf
+	fi
+fi
+
+if [ -x "/etc/init.d/tracosrv.sh" ]; then
+	update-rc.d tracosrv.sh defaults >/dev/null
+	invoke-rc.d tracosrv.sh start || exit $?
+fi
+
+
+exit 0
