@@ -339,8 +339,8 @@ given ( $defaultunpack ) {
     when ( /^icci$/smx ) {
       ($byteoffset,$frametype,$filenumber,undef) = unpack 'icci' , ${$buffer};
    }
-    when ( /^iccQ$/smx ) {
-      ($byteoffset,$frametype,$filenumber,undef) = unpack 'iccQ' , ${$buffer};
+    when ( /^issQ$/smx ) {
+      ($byteoffset,$frametype,$filenumber,undef) = unpack 'issQ' , ${$buffer};
    }
 }
 
@@ -356,8 +356,7 @@ given ( $defaultunpack ) {
 #}
 
 	$self->message({msg=>"offset $byteoffset",v=>'vvv',debug=>${$dbg},});
-	$self->message({msg=>"offset1 $byteoffset1",v=>'vvv',debug=>${$dbg},});
-	$self->message({msg=>"offset2 $byteoffset2",v=>'vvv',debug=>${$dbg},});
+	if ( $byteoffset2 ) { $self->message({msg=>"offset2 $byteoffset2",v=>'vvv',debug=>${$dbg},}); }
 	$self->message({msg=>"frametype $frametype",v=>'vvv',debug=>${$dbg},});
 	$self->message({msg=>"fileno $filenumber",v=>'vvv',debug=>${$dbg},});
 
