@@ -242,7 +242,7 @@ my $dbg=\$args->{'debug'};
 my @filelist=\$self->_get_files_in_dir ({dir=>${$source_dir},});
 
 foreach my $f (@filelist) {
-	$self->message({msg=>"_get_filename_by_cutnumber | ${$f} ${$fileno}",v=>'vvv',debug=>${$dbg]},});
+	$self->message({msg=>"_get_filename_by_cutnumber | ${$f} ${$fileno}",v=>'vvv',debug=>${$dbg},});
   if (${$f} =~ /(${$fileno})[.]vdr$/smx ) {
     $start_ts = ${$f};
     $vdrversion = '1.6';
