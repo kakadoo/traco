@@ -152,9 +152,13 @@ my $aac_bitrate=\$args->{'aac_bitrate'};
 
 #my $returndb = {};
 my @tmpdb2;
-# prepare & in path
+# prepare special chars in path
 my $workfile = ${$file} ;
 $workfile =~ s/[&]/\\&/gmisx ;
+$workfile =~ s/\'/\\\'/gmisx ;
+$workfile =~ s/[:]/\\:/gmisx ;
+
+
 
 my $runline = "nice -n ${$mynice} ${$handbrake} --scan";
 if ( ${$starttime} )  { $runline .= " --start-at duration:${$starttime}"; }

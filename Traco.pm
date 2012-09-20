@@ -284,7 +284,7 @@ return ($rc);
 
 sub buildrunline {
 my ($self,$args) = @_;
-my $dir=\$args->{'dir'};
+my $srcdir=\$args->{'dir'};
 my $dbg=\$args->{'debug'};
 my $tracoenv=\$args->{'tracoenv'};
 my $hba=\$args->{'hba'};
@@ -294,6 +294,12 @@ my $target_mbyte_size = \$args->{'target_mbyte_size'};
 my $useclassic = \$args->{'useclassic'};
 
 my $runline = "nice -n ${$profile}->{'nice'} ${$profile}->{'hb_bin'} --no-dvdnav";
+
+my $dir = ${$srcdir};
+$dir =~ s/[&]/\\&/gmisx ;
+$dir =~ s/\'/\\\'/gmisx ;
+$dir =~ s/[:]/\\:/gmisx ;
+
 
 if ( ${$profile}->{'setcpu'} ) {
   $runline .= " -C ${$profile}->{'setcpu'}";
@@ -504,7 +510,8 @@ my $l=\$args->{'line'} ;
 my $wlog=\$args->{'writelog'};
 
 my $line = ${$l} ;
-$self->message({msg=>"[_runexternal]run | $line",v=>'vvv',debug=>${$dbg},});
+
+$self->message({msg=>"[_runexternal]$line",v=>'vvv',debug=>${$dbg},});
 
 if ( not ( $line ) ) { return ('no_exec_line_exists_for_runexternal')};
 my $returnline = {};
