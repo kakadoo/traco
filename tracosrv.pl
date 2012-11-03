@@ -43,6 +43,9 @@ $tracoenv->{'fpstype'} = 'vdr';
 $tracoenv->{'defaultprofile'} = 'SD';
 # nice default
 $tracoenv->{'nice'} = '20';
+$tracoenv->{'vdrversion'} = '1.7';
+$tracoenv->{'vdruid'} = $UID;
+
 my $z=0;
 #my $homedir = getcwd();
 
@@ -100,10 +103,12 @@ if (${$config}->{'fpstype'} ) {
 
 # get vdr user 
 if ( ${$config}->{'vdr_user'} ) {
-  $tracoenv->{'vdruid'} = getpwnam ${$config}->{'vdr_user'};
+	my $new_uid = getpwnam ${$config}->{'vdr_user'};
+	if ( $new_uid ) {
+	  $tracoenv->{'vdruid'} = $new_uid;
+  	}
 } else {
-  $traco->message({msg=>'missing vdr_user in config file',}) ;
-  exit 1;
+  $traco->message({msg=>"missing vdr_user at your system use default $tracoenv->{'vdruid'}",}) ;
 }
 
 # get path from config
@@ -149,11 +154,12 @@ if ( ${$runexternal}->{'exitcode'} != 0 ) {
 
 # end find binarys ##################
 
-# get vdr version 
-$tracoenv->{'vdrversion'} = $traco->chkvdrversion({type=>'prg',debug=>$tracoenv->{'debug_flag'},});
+# get vdr version from config if available
+if ( ${$config}->{'vdrversion'} ) {
+	$tracoenv->{'vdrversion'} = ${$config}->{'vdrversion'};
+}
 
 $traco->message({msg=>"vdr version $tracoenv->{'vdrversion'}",v=>'v',}) ;
-
 
 if ( ${$config}->{'setcpu'} ) {
   my $setcpu = \$traco->setcpuoptions({config=>${$config}->{'setcpu'},debug=>${$config}->{'debug_setcpuoptions'},maxcpu=>${$config}->{'maxcpu'},});

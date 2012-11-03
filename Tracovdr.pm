@@ -10,7 +10,7 @@ use feature qw/switch/;
 
 #use Sys::Hostname;
 #use File::Basename;
-#use Data::Dumper;
+use Data::Dumper;
 
 use constant { 
 		DREISECHSNULLNULL => 3600,
@@ -42,6 +42,7 @@ sub new {
 # http://www.vdr-wiki.de/wiki/index.php/Vdr%285%29#MARKS
 sub parsevdrmarks {
 my ($self,$args) = @_;
+
 my $markspath = \$args->{'dir'};
 my $f = \$args->{'fps'};
 my $fps = ${$f} || '25'; # default 25 fps wenn nix uebergeben wird
@@ -49,15 +50,12 @@ my $duration = \$args->{'duration'};
 
 my $marksfile = \$args->{'marksfile'};
 my $rcdb = {}; # return db
-
-#if ( -e "${$markspath}/marks" ) { $marksfile="${$markspath}/marks";}
-#if ( -e "${$markspath}/marks.vdr" ) { $marksfile="${$markspath}/marks.vdr";}
-#if ($marksfile eq q{} ) { return ('nomarksfound'); }
-
+my %cuts;
+# [startfps,startime,stopfps,stoptime]
 my $readfile = \$self->readfile({file=>${$marksfile},});
 
 if ( ${$readfile}->{'returncode'} =~ /[_]done$/smx ) {
-# how may cuts availble
+# how many cuts available
 $rcdb->{'cutcount'} = 0;
 $rcdb->{'totalframes'} = 0;
 my $z=0; # starts with line 1
@@ -72,6 +70,7 @@ while ($#content >= $z) {
     $rcdb->{"start_fps$n"} = $overall_fps;
     #$rcdb->{"option_start_frame$n"} = "--start-at frame:$overall_fps";
     $rcdb->{"start_time$n"} = $time_in_seconds;
+    $cuts{$n}=[$overall_fps,$time_in_seconds];
 #    $rcdb->{"start_frame$n"} = $frame;
     $z=$z+2;
     $n++;
@@ -88,6 +87,8 @@ while  ($#content >= $z) {
   #$rcdb->{"option_stop_frame$n"} = "--stop-at frame:$overall_fps";
   $rcdb->{"stop_time$n"} = $time_in_seconds;
 #  $rcdb->{"stop_frame$n"} = $frame;
+	$cuts{$n}->[2]=$overall_fps;
+	$cuts{$n}->[3]=$time_in_seconds;
   if ( $rcdb->{"start_fps$n"} ) { $rcdb->{'cutcount'} = $rcdb->{'cutcount'}+1; }
   $z=$z+2;
   $n++;
@@ -111,7 +112,9 @@ if ( $rcdb->{'cutcount'} <= 0 ) { # no markers used
   $self->message({msg=>"[no markers found]\$totalframes are $rcdb->{'totalframes'}",verbose=>'vvv',}) ;
 }
 
-
+#	print Dumper %cuts;
+$rcdb->{'cuts'} = \%cuts;
+#print Dumper $rcdb;
 undef $readfile;
 return ($rcdb);
 } # end sub parsevdrmarks 

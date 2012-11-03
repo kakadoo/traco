@@ -8,9 +8,8 @@ use English '-no_match_vars';
 use Carp;
 use Cwd;
 use feature qw/switch/;
-#use File::Find;
 use File::Basename;
-#use Data::Dumper;
+use Data::Dumper;
 use File::Glob ':glob';
 use Fcntl ':flock';
 use Config;
@@ -76,10 +75,10 @@ return ($returnline);
 sub reniceme {
 my ($self,$args) = @_;
 # print Dumper $args;
-
      $self->_runexternal({ line=>"renice -n $args->{'nice'} -p $args->{'pid'}", debug=>$args->{'debug_flag'},});
      return;
 }
+
 sub combine_ts {
 my ($self,$args) = @_;
 my $source_ts = \$args->{'source'} ;
@@ -94,9 +93,9 @@ my $nice=\$args->{'nice'};
 my $marksfile=\$args->{'marksfile'};
 my $xmlfile = "${$source_ts}/vdrtranscode.xml";
 
-if ( -e ${$target_ts} ) { return ('target_exist_in_cutfiles') };
-if ( not ( ${$vdrv} ) ) { return ('missing_vdr_version_in_cutfiles'); };
-if ( not ( ${$marksfile} ) ) { return ('missing_marks_file_in_cutfiles'); };
+#if ( -e ${$target_ts} ) { return ('target_exist_in_combine_ts') };
+if ( not ( ${$vdrv} ) ) { return ('missing_vdr_version_in_combine_ts'); };
+if ( not ( ${$marksfile} ) ) { return ('missing_marks_file_in_combine_ts'); };
 
 my $fps=\$self->_getfps({fpstype=>${$fpstype},dir=>${$source_ts},debug=>${$dbg},handbrake=>${$hb},nice=>${$nice},});
 
@@ -119,25 +118,40 @@ my $ref_marks = \$self->parsevdrmarks({dir=>$source_ts_dir,fps=>${$fps},debug=>$
 
 $self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>${$ref_marks}->{'totalframes'},debug=>${$dbg},});
 
+
 my $cutcount = ${$ref_marks}->{'cutcount'}-1;
 
+my %cuts = %{${$ref_marks}->{'cuts'}};
+my %posdb;
 
+# [startfps,startime,stopfps,stoptime]
+for my $a ( keys %cuts ) {
 
-foreach my $a (0 .. $cutcount) {
+#foreach my $a (0 .. $cutcount) {
+#my $startframe = ${$ref_marks}->{"start_fps$a"};
+#my $stopframe = ${$ref_marks}->{"stop_fps$a"};
+my $startframe = $cuts{$a}->[0];
+my $stopframe = $cuts{$a}->[2];
 
-my $startframe = ${$ref_marks}->{"start_fps$a"};
-my $stopframe = ${$ref_marks}->{"stop_fps$a"};
 my ($sta,$staf) = \$self->_getoffset({frame=>$startframe,index=>$indexfile,vdrversion=>$vdrversion,debug=>${$dbg},});
 my ($sto,$stof) = \$self->_getoffset({frame=>$stopframe,index=>$indexfile,vdrversion=>$vdrversion,debug=>${$dbg},});
+
+$posdb{$a}=[${$sta},${$staf},${$sto},${$stof}];
+
 $start->{"pos$a"} = ${$sta};
 $start->{"file$a"} = ${$staf};
 
 $stop->{"pos$a"} = ${$sto};
 $stop->{"file$a"} = ${$stof};
 
-my $t=${$ref_marks}->{"start_time$a"} ;
+#my $t=${$ref_marks}->{"start_time$a"} ;
+my $t=$cuts{$a}->[0];
+
 $self->message({msg=>"||cut -> $a time in sek -> $t || frame -> $startframe || byteposition start -> ${$sta} in File ${$staf} stop -> ${$sto} in File ${$stof}",debug=>${$dbg},v=>'vvv',}) ;
 }
+#print Dumper %posdb;
+
+
 
 my $wrkfile = q{};
 for my $a (0 .. $cutcount ) {
@@ -308,16 +322,16 @@ my $index = \$args->{'index'};
 my $startpos = ACHT * $frame ;
 #my $vdrv=\$args->{'vdrversion'};
 my $platform=$Config{'archname'};
-my $defaultunpack = 'issQ' ; # lssQ 64 bit perl version for vdr 1.7
-my $defaultversion = $args->{'vdrversion'} || '1.7';
+my $defaultunpack = 'issQ' ; # issQ 64 bit perl version for vdr 1.7
+my $vdrversion = $args->{'vdrversion'} || '1.7';
 my $dbg=\$args->{'debug'};
 
 #if ( $args->{'vdrversion'} ) { $defaultversion = ${$vdrv} ; }
 
-if ($defaultversion =~ /^1[.]6$/smx ) {
+if ($vdrversion =~ /^1[.]6$/smx ) {
   $defaultunpack = 'icci';
 }
-if ( ( $platform =~ /i486/smx ) and ( $defaultversion =~ /^1[.]7$/smx ) ) {
+if ( ( $platform =~ /i486/smx ) and ( $vdrversion =~ /^1[.]7$/smx ) ) {
   $defaultunpack = 'iccS';
 }
 
@@ -404,8 +418,6 @@ if ( ${$files} =~ /\s/smx ) {
 
 my $wrmode = '>>:raw';
 
-if ( -e "${$dir}/$destinationfile" ) { return ('_joinfiles vdrtranscode.ts exists'); }
-
 for my $file (@infiles) {
     if ( $file eq q{} ) { next ;};
     $self->message ({msg=>"[joinfiles]proccess ${$dir}/$file",debug=>${$dbg},v=>'vvv',});
@@ -441,6 +453,7 @@ return ('writedone');
 
 sub readfile {
 my ($self,$args) = @_;
+print Dumper $args;
 my $file = \$args->{'file'};
 
 my @content = ();
