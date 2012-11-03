@@ -9,7 +9,7 @@ use Carp;
 use Cwd;
 use feature qw/switch/;
 use File::Basename;
-use Data::Dumper;
+#use Data::Dumper;
 use File::Glob ':glob';
 use Fcntl ':flock';
 use Config;
@@ -453,7 +453,7 @@ return ('writedone');
 
 sub readfile {
 my ($self,$args) = @_;
-print Dumper $args;
+#print Dumper $args;
 my $file = \$args->{'file'};
 
 my @content = ();
