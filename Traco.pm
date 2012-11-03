@@ -305,7 +305,7 @@ if ( ${$profile}->{'setcpu'} ) {
   $runline .= " -C ${$profile}->{'setcpu'}";
 }
 
-$runline .= " -i ${$dir}/vdrtranscode.ts";
+$runline .= " -i $dir/vdrtranscode.ts";
 
 if ( ${$profile}->{'largefile'} ) {
   $runline .= " --large-file";
@@ -359,7 +359,7 @@ if ( ${$profile}->{'param_anamorph'} ) {
 }
 $runline .= " --modulus ${$profile}->{'modulus'}";
 $runline .= " -X ${$profile}->{'param_x'}";
-$runline .= " -o ${$dir}/vdrtranscode_tmp.${$profile}->{'container'}";
+$runline .= " -o $dir/vdrtranscode_tmp.${$profile}->{'container'}";
 $runline .= ' 2>&1';
 
 undef $profile;
