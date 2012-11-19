@@ -14,6 +14,7 @@ use strict;
 use warnings;
 use Carp;
 use English '-no_match_vars';
+use lib 'lib/';
 #use Getopt::Long:
 use Fcntl qw(:flock) ;
 use Proc::Daemon 0.11;

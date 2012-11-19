@@ -10,6 +10,7 @@ use strict;
 use warnings;
 use Carp;
 use English '-no_match_vars';
+use lib ' lib/';
 use Traco::Traco ;
 # now feature from 5.10
 use feature qw/switch/;
