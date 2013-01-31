@@ -1,0 +1,111 @@
+sub _prepareprofile {
+my $opts = shift;
+my $proccessvideodir = $opts->{'file'};
+
+$traco->message ({msg=>'read and prepare profile for transcode process',v=>'vvv',});
+my $default = \$traco->getprofile({profile=>$tracoenv->{'defaultprofile'},});
+
+# get profile defaults
+my $profiledefaults = \$traco->getprofile({profile=>'default',});
+
+my $xmlprofile = \$traco->getfromxml({file=>"$proccessvideodir/vdrtranscode.xml",
+				field=>'ALL',
+				debug=>$tracoenv->{'debug_flag'},
+				});
+
+my $returndb = {
+  nice=>$tracoenv->{'nice'},
+  hb_bin=>$tracoenv->{'hb_bin'},
+  setcpu=>$tracoenv->{'setcpu'},
+  param_x => ${$xmlprofile}->{'pixel'},
+  container => ${$xmlprofile}->{'container'},
+  dd_hd_sd => ${$xmlprofile}->{'dd_hg_sd'},
+  quality => ${$default}->{'quality'},
+  audiotracks => ${$xmlprofile}->{'audiotracks'},
+  codecopts => ${$default}->{'codeopts'},
+  codec => ${$default}->{'codec'},
+  modulus => ${$default}->{'modulus'},
+  container => ${$default}->{'container'},
+  AAC_Bitrate => ${$config}->{'AAC_Bitrate'},
+  DRC => ${$config}->{'DRC'},
+};
+
+#<destination>
+#<container>mp4</container>
+#<dd_hd_sd>HD-smallHD</dd_hd_sd>
+#<quality>HQ</quality>
+#<audiotracks>all</audiotracks>
+#</destination>
+
+#UVHQ = 7000
+#VHQ =  3700 
+#HQ = 1200
+#MQ = 800
+#LQ = 600
+#VLQ = 400
+if ( ${$xmlprofile}->{'modulus'} ) {
+      $returndb->{'modulus'} = ${$xmlprofile}->{'modulus'};
+}
+
+# if quality setting not digit try to use bitrate from standard qualitys
+if ( ${$xmlprofile}->{'quality'} ) {
+  given ( ${$xmlprofile}->{'quality'} ) {
+  # LQ for Webencoding -> sets maximum width of picture to 480 , disables anamorph encoding, sets AAC Rate to 96
+    when ( /^600$/smx ) {
+
+      $returndb->{'param_x'} = SECHSVIERNULL;
+      $returndb->{'param_anamorph'} = undef ;
+      $returndb->{'AAC_Bitrate'} = '96';
+    }
+    when ( /^400$/smx ) {
+    	$returndb->{'param_x'} = VIERACHTNULL;
+	$returndb->{'param_anamorph'} = undef ;
+	$returndb->{'AAC_Bitrate'} = '96';
+    }
+    when ( /^(?:UVHQ|VHQ|HQ|MQ|LQ|VLQ)$/smx ) {
+      $returndb->{'quality'} = ${$profiledefaults}->{'quality'}->{ ${$xmlprofile}->{'quality'} };
+    }
+    when ( /^\d{1,5}$/smx ) {
+      $returndb->{'quality'} = ${$xmlprofile}->{'quality'};
+    }
+    when ( /^rf[:]\d{2,4}$/smx ) {
+    }
+  } # end given
+} # end if ${$xmlprofile}->{'quality'}
+
+if ( ${$xmlprofile}->{'codecopts'} ) {
+  $returndb->{'codecopts'} = ${$xmlprofile}->{'codecopts'} ;
+}
+
+# use x264 , instead ffmpeg , enable 2Pass and the x264 encoder options 
+if ( ${$xmlprofile}->{'codec'} ) {
+  $returndb->{'codec'} = ${$xmlprofile}->{'codec'};
+}
+
+if (  ${$xmlprofile}->{'container'} ) {
+  $returndb->{'container'} = ${$xmlprofile}->{'container'};
+}
+
+if ( ${$config}->{'anamorph_encoding'} ) {
+  $returndb->{'param_anamorph'} = '--loose-anamorphic' ;
+} # enable anamorph_encoding
+
+if ( ${$config}->{'use_classic_profile'} ) {
+  $returndb->{'codec'} = undef ;
+  $returndb->{'codecopts'} = undef ;
+  $traco->message({msg=>'use classic Profile , to speedup...',v=>'v',}) ;
+}
+
+if ( $tracoenv->{'defaultprofile'} !~ /^(?:SD|HD|smallHD)$/smx ) {
+  $returndb->{'codec'} = ${$xmlprofile}->{'codec'} ;
+  $returndb->{'param_anamorph'} = ${$xmlprofile}->{'anamorph'};
+  $traco->message({msg=>'use codec and anamorph settings from profile',v=>'v',}) ;
+}
+
+if (  ${$xmlprofile}->{'crop'} ) {
+  $returndb->{'crop'} = ${$xmlprofile}->{'crop'};
+}
+
+
+return ($returndb);
+}

@@ -1,0 +1,27 @@
+<status>YourPictureIsReadyToView</status>
+<vdrinfo>
+<title>Moby_Dick</title>
+<frames>25</frames>
+<starttime>1322421300</starttime>
+<endtime>1322430900</endtime>
+<src_audio track="0">stereo</src_audio>
+<src_audio track="1">dolby digital</src_audio>
+</vdrinfo>
+<files>00001.ts 00002.ts 00003.ts</files>
+<profile name="PAL">
+<name>SD (PAL Resolution) Profile with HQ Bitrate</name>
+<resolution>PAL</resolution>
+<container>mp4</container>
+<pixel>720</pixel>
+<ypixel>576</ypixel>
+<anamorph>--loose-anamorphic</anamorph>
+<modulus>8</modulus>
+<quality>1200</quality>
+<audiotracks>all</audiotracks>
+<codec>-2 -T -e x264</codec>
+<codecopts>-x ref=2:mixed-refs:bframes=2:b-pyramid=1:weightb=1:analyse=all:8x8dct=1:subme=7:me=umh:merange=24:trellis=1:no-fast-pskip=1:no-dct-decimate=1:direct=auto</codecopts>
+</profile>
+<totalframes>180511</totalframes>
+<w_x_h>720x576</w_x_h>
+<transcode_with_fps>25</transcode_with_fps>
+

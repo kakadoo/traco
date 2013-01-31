@@ -1,0 +1,146 @@
+#!/usr/bin/perl -w
+# $Revision: 00001 $
+# $Source: /home/glaess/perl/vdr/usr/local/bin/vdrtranscodeadm.pl $
+# $Id: Holger Glaess $
+# $HeadURL www.glaessixs.de/projekte/vdrtranscode $ 
+# $Date 29/03/2011 $
+
+use File::Basename ;
+use strict;
+use warnings;
+use Carp;
+use English '-no_match_vars';
+use Traco ;
+# now feature from 5.10
+use feature qw/switch/;
+use version;
+use Data::Dumper;
+
+our $VERSION = '0.01';
+
+#my @temp = @ARGV;
+my @options = @ARGV;
+
+my $z=0;
+#my @tmptranscodeoptions = ();
+my @transcodeoptions = ();
+my $audiotrack=q{};
+my $status=q{};
+my $debug_flag=0;
+my $configfile = '/etc/vdr/vdrtranscode.conf';
+my $mypath=q{};
+my $returnline = q{};
+
+while ($#options >= $z) {
+  given ($options[$z]) {
+    when ( /^audiotrack$/smx ) {
+      my $a=$z+1;
+      $audiotrack=$options[$a];
+      $z++;
+}
+    when ( /^status$/smx ) {
+      my $a=$z+1;
+      $status=$options[$a];
+      $z++;
+    }
+    when ( /^[-]d$/smx ) {
+      $debug_flag=1;
+    }
+    # if cmd set all options after set are translate to options for transcode 
+    # any kind of commando then ignored
+    when ( /^set$/smx ) {
+      my $a=$z+1;
+	my $b = $a + 3 ;
+	while ($#options >= $a) {
+	  push @transcodeoptions , $options[$a];
+	  if ($b >= $a ) { $a++; } else { last };
+	}
+    } # end when set
+    when ( /^[-]c$/smx ) {
+	my $a=$z+1;
+	$configfile = $options[$a] ;
+	$z++;
+    }
+    when (/^[-][-]help/smx ) {
+      _myhelp ();
+      exit 1;
+    }
+  } # end given
+      $z++;
+} # end while options;
+
+sub _myhelp {
+  while (<DATA>) {
+    print {*STDOUT} "$_\n" or croak $ERRNO;
+  }
+  return () ;
+}
+
+my $vdrtranscode=Traco->new({debug=>$debug_flag,});
+my $config = \$vdrtranscode->parseconfig({config=>$configfile,debug=>$debug_flag,});
+my $indir = ${$config}->{'Indir'};
+my $vdruid = q{};
+if ( ${$config}->{'vdr_user'} ) {
+  $vdruid = getpwnam ${$config}->{'vdr_user'};
+  $EUID = $vdruid;
+  $UID = $vdruid;
+} else {
+  print {*STDOUT} "missing vdr_user in config\n" or croak $ERRNO;
+}
+
+my $a = $#options;
+if ( ( $a >= 0 ) and ($options[$a] =~ /$indir/smx ) ) {
+  $mypath = $options[$a];
+} else {
+  print {*STDOUT} "missing path ! or try --help\n" or croak $ERRNO;
+  exit 1;
+}
+
+my ($container,$quality,$dd_hd_sd) = q{};
+foreach my $f (@transcodeoptions) {
+  given ($f) {
+    when ( /^(?:mp4|m4v|mkv)$/smx ) {
+      $container=$f;
+    }
+    when ( /^(?:DD|noDD|HD-HD|HD-smallHD)$/smx ) {
+      $dd_hd_sd=$f;
+    }
+    when ( /^(?:VHQ|HQ|MQ)$/smx ) {
+      $quality = $f;
+    }
+  }
+}
+
+given ($status) {
+ when ( $_ eq q{} ) {
+   my $rc=q{};
+   $rc = \$vdrtranscode->changexmlfile({file=>"$mypath/vdrtranscode.xml",action=>'add',field=>'block-start',content=>'destination',debug=>$debug_flag,});
+   $rc = \$vdrtranscode->changexmlfile({file=>"$mypath/vdrtranscode.xml",action=>'add',field=>'audiotracks',content=>$audiotrack,debug=>$debug_flag,});
+   $rc = \$vdrtranscode->changexmlfile({file=>"$mypath/vdrtranscode.xml",action=>'add',field=>'container',content=>$container,debug=>$debug_flag,});
+   $rc = \$vdrtranscode->changexmlfile({file=>"$mypath/vdrtranscode.xml",action=>'add',field=>'quality',content=>$quality,debug=>$debug_flag,});
+   $rc = \$vdrtranscode->changexmlfile({file=>"$mypath/vdrtranscode.xml",action=>'add',field=>'dd_hd_sd',content=>$dd_hd_sd,debug=>$debug_flag,});
+   $rc = \$vdrtranscode->changexmlfile({file=>"$mypath/vdrtranscode.xml",action=>'add',field=>'block-stop',content=>'destination',debug=>$debug_flag,});
+   $returnline = ${$rc};
+  }
+ when  ( $_ =~ /^status$/smx ) {
+	$returnline = $vdrtranscode->getfromxml({file=>"$mypath/vdrtranscode.xml",field=>'status',});
+ }
+ when  ( $_ =~ /^(?:ready|online|offline|cutfiles|joinfiles|proccessing)$/smx ) {
+  my $rc=\$vdrtranscode->changexmlfile({file=>"$mypath/vdrtranscode.xml",action=>'change',field=>'status',to=>$status,debug=>$debug_flag,});
+   $returnline = ${$rc};
+ }
+}
+print {*STDOUT} "$returnline\n" or croak $ERRNO;
+
+
+1;
+__DATA__
+vdrtrancodeadm.pl 
+  audiotrack first or all
+  set
+    m4v , mkv , mp4 
+    noDD , DD, HD-HD . 
+    MQ, HQ , VHQ ,UVHQ 
+or status 
+  offline , online , joinfiles , cutfiles , transcodedone , proccessing , ready
+  /path/film dir

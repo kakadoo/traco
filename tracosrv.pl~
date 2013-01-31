@@ -19,9 +19,8 @@ use Proc::Daemon 0.11;
 #use File::Copy ;
 use File::Basename ;
 #use Cwd;
-use lib 'lib/';
 use Traco::Traco 0.20;
-#use Data::Dumper ;
+use Data::Dumper ;
 
 # now feature from 5.10
 use feature qw/switch/;
@@ -153,8 +152,6 @@ if ( ${$runexternal}->{'exitcode'} != 0 ) {
 
 # get vdr version 
 $tracoenv->{'vdrversion'} = $traco->chkvdrversion({type=>'prg',debug=>$tracoenv->{'debug_flag'},});
-
-if ( not defined $tracoenv->{'vdrversion'} ) { exit 1; }
 
 $traco->message({msg=>"vdr version $tracoenv->{'vdrversion'}",v=>'v',}) ;
 

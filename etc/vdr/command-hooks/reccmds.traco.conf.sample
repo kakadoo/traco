@@ -1,0 +1,39 @@
+#
+# reccmds.traco.conf.sample version 0.02
+#
+prepare transcode file : tracoadm.pl status prepare_traco_ts
+start transcode : tracoadm.pl status ready
+status : tracoadm.pl show status
+
+change profile options {
+        audiotrack all : tracoadm.pl audiotrack all
+        audiotrack first : tracoadm.pl audiotrack first
+        quality UVHQ (bitrate 7000): tracoadm.pl quality UVHQ
+        quality VHQ (bitrate 3700): tracoadm.pl quality VHQ
+        quality HQ (bitrate 1200): tracoadm.pl quality HQ
+        quality MQ (bitrate 800): tracoadm.pl quality MQ
+        quality LQ (bitrate 600): tracoadm.pl quality LQ
+        quality VLQ (bitrate 400): tracoadm.pl quality VLQ
+        container MP4: tracoadm.pl container mp4
+        container MKV: tracoadm.pl container mkv
+        container M4V: tracoadm.pl container m4v
+}
+profile {
+show preset profile : tracoadm.pl show profile
+        set profile {
+                PAL profile : tracoadm.pl profile PAL
+                SD profile : tracoadm.pl profile SD
+                smallHD profile : tracoadm.pl profile smallHD
+                HD profile : tracoadm.pl profile HD
+        } 
+}
+
+
+specials {
+delete vdrtranscode.ts : tracoadm.pl delete vdtranscode.ts
+delete vdrtranscode.xml : tracoadm.pl delete vdtranscode.xml
+join .ts or .vdr files : tracoadm.pl status joinfiles
+cut .ts or .vdr files : tracoadm.pl status cutfiles
+}
+
+

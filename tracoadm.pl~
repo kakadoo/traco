@@ -10,16 +10,12 @@ use strict;
 use warnings;
 use Carp;
 use English '-no_match_vars';
-use lib 'lib/';
 use Traco::Traco ;
 # now feature from 5.10
 use feature qw/switch/;
 #use Data::Dumper;
 
-our $VERSION = '0.04';
-
-# 0.03 fix delete
-# 0.04 no use of indir form config anymore.
+our $VERSION = '0.02';
 
 my @options = @ARGV;
 my $z=0;
@@ -85,7 +81,7 @@ if ( -e $admenv->{'configfile'} ) {
   print {*STDOUT} "missing configfile exit $PROGRAM_NAME\n" or croak $ERRNO;
   exit 1;
 }
-# my $indir = ${$config}->{'Indir'};
+my $indir = ${$config}->{'Indir'};
 my $profiledefaults=\$traco->getprofile({profile=>'default',});
 
 set_user ();
@@ -93,8 +89,8 @@ set_user ();
 my @tmp = reverse @options;
 my $workdir = $traco->preparepath({path=>$tmp[0],});
 undef @tmp;
-if ( ( not ( defined $workdir ) ) or ( $#options < 0 ) ) {
-  print {*STDOUT} "missing path ! or options try --help\n" or croak $ERRNO;
+if ( ( not ( defined $workdir ) ) or ($workdir !~ /$indir/smx ) and ( ! grep { /profiles/smx } @options ) ) {
+  print {*STDOUT} "missing path ! or try --help\n" or croak $ERRNO;
   leave ('_error');
 }
 
@@ -143,7 +139,8 @@ if  ( $admenv->{'quality'} ) {
 }
 
 if ( $admenv->{'delete'} ) {
-  if ( unlink "$workdir/$admenv->{'delete'}" ) {
+  my $rc = unlink "$workdir/$admenv->{'delete'}";
+  if ( ${$rc} == 1 )  {
     print {*STDOUT} "delete_$workdir\/$admenv->{'delete'}\n" or croak $ERRNO;
   }
   leave('_done');
@@ -296,7 +293,7 @@ given ($option) {
   #when ( /^show$/smx ) {
   #  $returnline = ${$status};
   #}
-  when ( $value =~ qr/^(?:ready|online|offline|cutfiles|joinfiles|prepare_traco_ts)$/smx ) {
+  when ( $value =~ /^(?:ready|online|offline|cutfiles|joinfiles|prepare_traco_ts)$/smx ) {
     my $rc=\$traco->changexmlfile
       ({file=>"$mypath/vdrtranscode.xml",
 	action=>'change',
