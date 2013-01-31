@@ -151,10 +151,11 @@ if ( ${$runexternal}->{'exitcode'} != 0 ) {
 
 # end find binarys ##################
 
-# get vdr version 
-$tracoenv->{'vdrversion'} = $traco->chkvdrversion({type=>'prg',debug=>$tracoenv->{'debug_flag'},});
-
-if ( not defined $tracoenv->{'vdrversion'} ) { exit 1; }
+# vdr version 
+$tracoenv->{'vdrversion'} = '1.7';
+if ( defined $config->{'vdrversion'} ) {
+	$tracoenv->{'vdrversion'} = $config->{'vdrversion'};
+}
 
 $traco->message({msg=>"vdr version $tracoenv->{'vdrversion'}",v=>'v',}) ;
 
