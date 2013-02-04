@@ -153,8 +153,8 @@ if ( ${$runexternal}->{'exitcode'} != 0 ) {
 
 # vdr version 
 $tracoenv->{'vdrversion'} = '1.7';
-if ( defined $config->{'vdrversion'} ) {
-	$tracoenv->{'vdrversion'} = $config->{'vdrversion'};
+if ( defined ${$config}->{'vdrversion'} ) {
+	$tracoenv->{'vdrversion'} = ${$config}->{'vdrversion'};
 }
 
 $traco->message({msg=>"vdr version $tracoenv->{'vdrversion'}",v=>'v',}) ;
