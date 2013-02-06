@@ -85,27 +85,25 @@ my $hb=\$args->{'handbrake'};
 my $nice=\$args->{'nice'};
 my $marksfile=\$args->{'marksfile'};
 my $xmlfile = "${$source_ts}/vdrtranscode.xml";
+my $idxfile = \$args->{'indexfile'};
 
-if ( -e ${$target_ts} ) { return ('target_exist_in_cutfiles') };
-if ( not ( ${$vdrv} ) ) { return ('missing_vdr_version_in_cutfiles'); };
-if ( not ( ${$marksfile} ) ) { return ('missing_marks_file_in_cutfiles'); };
+if ( -e ${$target_ts} ) { return ("combine_ts: target_exist_in_${$target_ts}") };
+if ( not ( ${$vdrv} ) ) { return ('combine_ts: missing_vdr_version'); };
 
 my $fps=\$self->_getfps({fpstype=>${$fpstype},dir=>${$source_ts},debug=>${$dbg},handbrake=>${$hb},nice=>${$nice},});
 
 my $start = {};
 my $stop = {};
 #
-my $indexfile ;
 my $vdrversion = ${$vdrv} ;
-if ( -e "$source_ts_dir/index" ) { $indexfile = "$source_ts_dir/index" }  ;
-if ( -e "$source_ts_dir/index.vdr" ) { $vdrversion = '1.6'; $indexfile = "$source_ts_dir/index.vdr" }  ;
+my $indexfile = ${$idxfile};
 
-if ( not ( $indexfile ) ) {
- return ('indexfile not found in combine_ts');
+if ( $indexfile eq 'missing' ) {
+ return ('combine_ts: indexfile not found');
 }
 
-$self->message({msg=>"combine TS Files in ${$source_ts}",}) ;
-$self->message({msg=>'get Byte Positions based on marks',debug=>${$dbg},v=>'v',}) ;
+$self->message({msg=>"combine_ts: TS Files in ${$source_ts}",}) ;
+$self->message({msg=>'combine_ts: get Byte Positions based on marks',debug=>${$dbg},v=>'v',}) ;
 
 my $ref_marks = \$self->parsevdrmarks({dir=>$source_ts_dir,fps=>${$fps},debug=>${$dbg},marksfile=>${$marksfile},});
 

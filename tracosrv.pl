@@ -21,7 +21,7 @@ use File::Basename ;
 #use Cwd;
 use lib 'lib/';
 use Traco::Traco 0.20;
-#use Data::Dumper ;
+use Data::Dumper ;
 
 # now feature from 5.10
 use feature qw/switch/;
@@ -42,6 +42,8 @@ $tracoenv->{'interval'} = 5 ;
 $tracoenv->{'pidfile'} = '/var/run/vdr/tracosrv.pid';
 $tracoenv->{'setcpu'} = q{};
 $tracoenv->{'fpstype'} = 'vdr';
+$tracoenv->{'target_ts_file'} = 'vdrtranscode.ts';
+
 # set default profile 
 $tracoenv->{'defaultprofile'} = 'SD';
 # nice default
@@ -317,12 +319,27 @@ foreach my $st (@videoqueue) {
       last;
     } # end when joinfiles
     when ( /^prepare_traco_ts$/smx ) {
-      my $tracotsrc=\$traco->prepare_traco_ts({source=>$dir,debug=>$tracoenv->{'debug_flag'},
-						vdrversion=>$tracoenv->{'vdrversion'},
-						fpstype=>$tracoenv->{'fpstype'},
-						handbrake=>$tracoenv->{'hb_bin'},
-						nice=>$tracoenv->{'nice'},
-					      });
+      my $vdrfiles = \$traco->chkvdrfiles({dir=>$dir,vdrversion=>$tracoenv->{'vdrversion'},});
+      if ( ${$vdrfiles}->{marks} ne 'missing' ) {
+            my $tracotsrc=\$traco->combine_ts ({source=>$dir,
+					      target=>"$dir/$tracoenv->{target_ts_file}",
+							vdrversion=>$tracoenv->{'vdrversion'},
+							fpstype=>$tracoenv->{'fpstype'},
+							handbrake=>$tracoenv->{'hb_bin'},
+							nice=>$tracoenv->{'nice'},
+						   marksfile=>${$vdrfiles}->{'marks'},
+						   indexfile=>${$vdrfiles}->{'index'},
+				      	debug=>$tracoenv->{'debug_flag'},
+				      });
+	
+#     my $tracotsrc=\$traco->prepare_traco_ts({source=>$dir,debug=>$tracoenv->{'debug_flag'},
+#						vdrversion=>$tracoenv->{'vdrversion'},
+#						fpstype=>$tracoenv->{'fpstype'},
+#						handbrake=>$tracoenv->{'hb_bin'},
+#						nice=>$tracoenv->{'nice'},
+#					   marksfile=>${$vdrfiles}->{marks},
+#				      indexfile=>${$vdrfiles}->{index},
+#					      });
       $traco->message ({msg=>"${$tracotsrc} in $dir",});
       if ( ${$tracotsrc} !~ /done$/smx ) {
           $traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
@@ -332,13 +349,22 @@ foreach my $st (@videoqueue) {
                                         debug=>$tracoenv->{'debug_flag'},
                                       });
       }
+      } else {
+			$traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
+			action=>'change',
+			field=>'status',
+			to=>'joinfiles',
+			debug=>$tracoenv->{'debug_flag'},
+			});
+      }
       last;
     }
     when ( /^cutfiles$/smx ) {
-      my $marksfile=q{};
-      if ( -e "$dir/marks" ) { $marksfile="$dir/marks";}
-      if ( -e "$dir/marks.vdr" ) { $marksfile="$dir/marks.vdr";}
-      if ( $marksfile ne q{} ) {
+      my $vdrfiles = \$traco->chkvdrfiles({dir=>$dir,vdrversion=>$tracoenv->{'vdrversion'},});
+      
+      if ( ${$vdrfiles}->{marks} ne 'missing' ) {
+print Dumper $vdrfiles;
+      
       my $cutrc=\$traco->combine_ts ({source=>$dir,
 					      target=>"$dir/vdrtranscode.ts",
 					      debug=>$tracoenv->{'debug_flag'},
@@ -346,7 +372,8 @@ foreach my $st (@videoqueue) {
 					      fpstype=>$tracoenv->{'fpstype'},
 					      handbrake=>$tracoenv->{'hb_bin'},
 					      nice=>$tracoenv->{'nice'},
-					      marksfile=>$marksfile,
+					      marksfile=>${$vdrfiles}->{'marks'},
+					      indexfile=>${$vdrfiles}->{'index'},
 					      });
 	if ( ${$cutrc} eq 'combine_ts_done' ) {
 	  $traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
@@ -468,15 +495,14 @@ my $totalframes = $traco->getfromxml({file=>"$proccessvideodir/vdrtranscode.xml"
 if ( not ( $totalframes ) ) {
 # check marks and resolve start and end point
 # if marks not available use start / stop time form info
-  my $marksfile = q{};
-  if ( -e "$proccessvideodir/marks" ) { $marksfile="$proccessvideodir/marks";}
-  if ( -e "$proccessvideodir/marks.vdr" ) { $marksfile="$proccessvideodir/marks.vdr";}
-  if ( $marksfile ne q{} ) {
+      my $vdrfiles = \$traco->chkvdrfiles({dir=>$proccessvideodir,vdrversion=>$tracoenv->{'vdrversion'},});
+     
+      if ( ${$vdrfiles}->{marks} ne 'missing' ) {
     my $vdrmarks = \$traco->parsevdrmarks({dir=>$proccessvideodir,
 				    fps=>${$hba}->{'fps'},
 				    duration=>${$hba}->{'duration'},
 				    debug=>$tracoenv->{'debug_flag'},
-				    marksfile=>$marksfile,
+				    marksfile=>${$vdrfiles}->{marks},
 				   });
    $totalframes =  ${$vdrmarks}->{'totalframes'};
   }

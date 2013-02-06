@@ -251,8 +251,8 @@ if ( ( ${$config}->{'vdr_user'} ) and ( getpwnam ${$config}->{'vdr_user'} ) ) {
   $EUID = $vdruid;
   $UID = $vdruid;
 } else {
+	
   print {*STDOUT} "missing or wrong vdr_user in traco config or system passwd\n" or croak $ERRNO;
-  leave ('_error');
 }
 return ('setup_user_done');
 }

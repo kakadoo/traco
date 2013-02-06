@@ -98,18 +98,13 @@ my $hb_bin=\$args->{'hb_bin'},
 my $nice= \$args->{'nice'},
 my $xmlfile = "${$dir}/vdrtranscode.xml";
 my $returncode = 'prepare_traco_ts_done';
+my $vdr_marks = \$args->{marksfile};
+my $vdr_info = \$args->{infofile};
+my $vdr_index = \$args->{indexfile};
 
-my $vdr_marks = q{};
-my $vdr_info = q{};
-
-if ( -e "${$dir}/marks" ) { $vdr_marks="${$dir}/marks";}
-if ( -e "${$dir}/marks.vdr" ) { $vdr_marks="${$dir}/marks.vdr";}
-if ( -e "${$dir}/info" ) { $vdr_info="${$dir}/info";}
-if ( -e "${$dir}/info.vdr" ) { $vdr_info="${$dir}/info.vdr";}
-
-if ($vdr_marks eq q{} ) {
+if (${$vdr_marks} eq q{} ) {
 my $files = \$self->getfromxml({file=>$xmlfile,field=>'files',debug=>${$dbg},});
-my $info = \$self->parsevdrinfo({dir=>${$dir},file=>$vdr_info,debug=>${$dbg},});
+my $info = \$self->parsevdrinfo({dir=>${$dir},file=>${$vdr_info},debug=>${$dbg},});
 my $totalframes = ${$info}->{'duration'} * ${$info}->{'frames'};
 
   if ( ( defined ${$files} ) and ( ${$files} ne q{} ) ) {
@@ -120,7 +115,7 @@ my $totalframes = ${$info}->{'duration'} * ${$info}->{'frames'};
     }
     undef $files;
   } else {
-    $returncode = 'prepare_traco_ts_join_error';
+    $returncode = 'prepare_traco_ts; join_error';
   }
 } else {
       my $cutrc=\$self->combine_ts ({source=>${$dir},
@@ -131,6 +126,7 @@ my $totalframes = ${$info}->{'duration'} * ${$info}->{'frames'};
 					      handbrake=>${$hb_bin},
 					      nice=>${$nice},
 					      marksfile=>$vdr_marks,
+					      indexfile=>$vdr_index,
 					      });
 	if ( ${$cutrc} eq 'combine_ts_done' ) {
 	  $self->changexmlfile({file=>$xmlfile,action=>'change',field=>'status',to=>'online',debug=>${$dbg},});

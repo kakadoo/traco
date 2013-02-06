@@ -54,7 +54,7 @@ if ( ${$vdrinfocontent} ) {
 				    vdrinfo=>${$vdrinfocontent},
 				    profile=>${$profile},});
       if (${$rc} eq 'recording') {
-	$returnline ="still ${$rc}";
+	$returnline ="createvdrtranscodexml: still ${$rc}";
       } else {
 	$self->message ({msg=>"create ${$videopath}/vdrtranscode.xml done",});
 	$returnline = ${$rc};

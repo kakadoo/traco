@@ -5,21 +5,11 @@ package Traco::Tracovdr;
 use strict;
 use warnings;
 #
-#use Traco::Traco ;
-#use Traco::Tracoxml ;
-#use Traco::Tracoprofile ;
-#use Traco::Tracorenamefile ;
-#
 use English '-no_match_vars';
 use Carp;
 
-#use IPC::Open3 'open3';
 use feature qw/switch/;
-#use Sys::Hostname;
-#use File::Basename;
 #use Data::Dumper;
-#use Fcntl ':flock';
-#use Sys::Syslog qw/:DEFAULT setlogsock/;
 
 use constant {DREISECHSNULLNULL => 3600,SECHSNULL => 60,};
 
@@ -27,9 +17,9 @@ require Exporter;
 use vars qw($VERSION @ISA @EXPORT_OK);
 use base qw(Exporter);
 
-@EXPORT_OK = qw(chkvdrversion parsevdrmarks parsevdrinfo);
+@EXPORT_OK = qw(chkvdrversion parsevdrmarks parsevdrinfo chkvdrfiles);
 
-$VERSION = '0.21';
+$VERSION = '0.22';
 
 
 sub new {
@@ -40,6 +30,35 @@ sub new {
 	return $self;
 } # end sub new
 
+# check if exists marks and info file 
+# 
+sub chkvdrfiles {
+my ($self,$args) = @_;
+
+my $dir = \$args->{dir};
+my $vdrversion = \$args->{vdrversion};
+
+my $vdr_marks = "${$dir}/marks";
+my $vdr_info = "${$dir}/info";
+my $vdr_index = "${$dir}/index" ;
+
+if ( ${$vdrversion} =~ /^1[.](?:3|4|5|6)$/smx ) {
+	$vdr_info="${$dir}/info.vdr";
+	$vdr_marks="${$dir}/marks.vdr";
+	$vdr_index="${$dir}index.vdr";
+}
+
+
+my $returnvar = { marks => $vdr_marks, info => $vdr_info, index => $vdr_index, };
+
+if ( ! -e $vdr_marks ) { $returnvar->{'marks'} = 'missing'; }
+if ( ! -e $vdr_info ) { $returnvar->{'info'} = 'missing'; }
+if ( ! -e $vdr_index ) { $returnvar->{'index'} = 'missing'; }
+
+#print Dumper $returnvar;
+return $returnvar;
+
+}
 
 # parsing of marks(.vdr) based on 
 # http://www.vdr-wiki.de/wiki/index.php/Vdr%285%29#MARKS
@@ -52,10 +71,6 @@ my $duration = \$args->{'duration'};
 
 my $marksfile = \$args->{'marksfile'};
 my $rcdb = {}; # return db
-
-#if ( -e "${$markspath}/marks" ) { $marksfile="${$markspath}/marks";}
-#if ( -e "${$markspath}/marks.vdr" ) { $marksfile="${$markspath}/marks.vdr";}
-#if ($marksfile eq q{} ) { return ('nomarksfound'); }
 
 my $readfile = \$self->readfile({file=>${$marksfile},});
 
