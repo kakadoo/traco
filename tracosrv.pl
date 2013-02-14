@@ -21,12 +21,12 @@ use File::Basename ;
 #use Cwd;
 use lib 'lib/';
 use Traco::Traco 0.20;
-use Data::Dumper ;
+#use Data::Dumper ;
 
 # now feature from 5.10
 use feature qw/switch/;
 
-our $VERSION = '0.21';
+our $VERSION = '0.22';
 
 use constant HD => { 1920 => 1080, 1280 => 720, 720 => 480, };
 # declarations
@@ -42,7 +42,9 @@ $tracoenv->{'interval'} = 5 ;
 $tracoenv->{'pidfile'} = '/var/run/vdr/tracosrv.pid';
 $tracoenv->{'setcpu'} = q{};
 $tracoenv->{'fpstype'} = 'vdr';
-$tracoenv->{'target_ts_file'} = 'vdrtranscode.ts';
+$tracoenv->{'traco_ts'} = 'vdrtranscode.ts';
+$tracoenv->{'traco_xml'} = 'vdrtranscode.xml';
+$tracoenv->{'traco_lck'} = 'vdrtranscode.lck';
 
 # set default profile 
 $tracoenv->{'defaultprofile'} = 'SD';
@@ -229,21 +231,22 @@ for my $v (@videolist) {
   if ( $videopath =~ /^($indir)$/smx ) { next ; }
   # check again if directory exist , maybe delete by osd
   if ( not ( -d $videopath ) ) { next ; };
-  # if $videopath/vdrtranscode.lck exist do next
-  if ( -e "$videopath/vdrtranscode.lck" ) {
+  if ( -e "$videopath/$tracoenv->{traco_lck}" ) {
     $traco->message ({msg=>"lck file exist in $videopath",v=>'vvv',});
     next ;
   }
   # if $videopath/vdrtranscode.xml exist -> read and parse 
   # else read info.(vdr) parse them and  vdrtranscode.xml
-  if ( -e "$videopath/vdrtranscode.xml" ) {
-    my $st = \$traco->getfromxml({file=>"$videopath/vdrtranscode.xml",field=>'status',debug=>$tracoenv->{'debug_flag'}});
+  if ( -e "$videopath/$tracoenv->{'traco_xml'}" ) {
+    my $st = \$traco->getfromxml({file=>"$videopath/$tracoenv->{'traco_xml'}",field=>'status',debug=>$tracoenv->{'debug_flag'}});
     my $status = ${$st} || 'offline';
     my @tmp = grep { /\Q$videopath/smx } @videoqueue ; # save for double entrys in queue
     if ( $#tmp < 0 ) { push @videoqueue,"$videopath $status"; }
    }
  else {
-    if ( ( -e "$videopath/info" ) or ( -e "$videopath/info.vdr" ) ) {
+ 		my $vdrfiles = \$traco->chkvdrfiles({dir=>$videopath,verversion=>$tracoenv->{'vdrversion'}, });
+ 		
+    if ( ${$vdrfiles}->{info} ne 'missing' ) {
       my $createxmlrc = \$traco->createvdrtranscodexml({dir=>$videopath,
 							debug=>${$config}->{'debug_createvdrtranscodexml'},
 							profile=>$tracoenv->{'defaultprofile'},
@@ -322,7 +325,7 @@ foreach my $st (@videoqueue) {
       my $vdrfiles = \$traco->chkvdrfiles({dir=>$dir,vdrversion=>$tracoenv->{'vdrversion'},});
       if ( ${$vdrfiles}->{marks} ne 'missing' ) {
             my $tracotsrc=\$traco->combine_ts ({source=>$dir,
-					      target=>"$dir/$tracoenv->{target_ts_file}",
+					      target=>"$dir/$tracoenv->{traco_ts}",
 							vdrversion=>$tracoenv->{'vdrversion'},
 							fpstype=>$tracoenv->{'fpstype'},
 							handbrake=>$tracoenv->{'hb_bin'},
@@ -342,7 +345,7 @@ foreach my $st (@videoqueue) {
 #					      });
       $traco->message ({msg=>"${$tracotsrc} in $dir",});
       if ( ${$tracotsrc} !~ /done$/smx ) {
-          $traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
+          $traco->changexmlfile({file=>"$dir/$tracoenv->{'traco_xml'}",
                                         action=>'change',
                                         field=>'status',
                                         to=>'offline',
@@ -350,23 +353,21 @@ foreach my $st (@videoqueue) {
                                       });
       }
       } else {
-			$traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
-			action=>'change',
-			field=>'status',
-			to=>'joinfiles',
-			debug=>$tracoenv->{'debug_flag'},
+			$traco->changexmlfile({
+				file=>"$dir/$tracoenv->{'traco_xml'}",
+				action=>'change',
+				field=>'status',
+				to=>'joinfiles',
+				debug=>$tracoenv->{'debug_flag'},
 			});
       }
       last;
     }
     when ( /^cutfiles$/smx ) {
       my $vdrfiles = \$traco->chkvdrfiles({dir=>$dir,vdrversion=>$tracoenv->{'vdrversion'},});
-      
       if ( ${$vdrfiles}->{marks} ne 'missing' ) {
-print Dumper $vdrfiles;
-      
       my $cutrc=\$traco->combine_ts ({source=>$dir,
-					      target=>"$dir/vdrtranscode.ts",
+					      target=>"$dir/$tracoenv->{'traco_ts'}",
 					      debug=>$tracoenv->{'debug_flag'},
 					      vdrversion=>$tracoenv->{'vdrversion'},
 					      fpstype=>$tracoenv->{'fpstype'},
@@ -376,7 +377,7 @@ print Dumper $vdrfiles;
 					      indexfile=>${$vdrfiles}->{'index'},
 					      });
 	if ( ${$cutrc} eq 'combine_ts_done' ) {
-	  $traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
+	  $traco->changexmlfile({file=>"$dir/$tracoenv->{'traco_xml'}",
 					action=>'change',
 					field=>'status',
 					to=>'online',
@@ -397,7 +398,7 @@ print Dumper $vdrfiles;
     when ( /^online$/smx ) {
       $videostatus->{$dir} = $status;
     }
-    # we found a waiting file and vdr ( vdrtranscodeadm ) prepare the job and release for proccessing
+    # we found a waiting file and vdr ( tracoadm ) prepare the job and release for proccessing
     when ( /^ready$/smx && $tracoenv->{'daemon_flag'} == 1 ) {
       $videostatus->{$dir} = 'proccessing';
       my $trrc = q{};
@@ -438,10 +439,10 @@ return ();
 sub _preproccess {
 my $proccessvideodir = shift ;
 
-if ( not ( -e "$proccessvideodir/vdrtranscode.ts" ) ) {
-  $traco->message ({msg=>"in $proccessvideodir ,no vdrtranscode.ts exist , stop _preproccess for transcodevideo , set status to offline",});
+if ( not ( -e "$proccessvideodir/$tracoenv->{'traco_ts'}" ) ) {
+  $traco->message ({msg=>"in $proccessvideodir ,no $tracoenv->{'traco_ts'} exist , stop _preproccess for transcodevideo , set status to offline",});
   
-  $traco->changexmlfile({file=>"$proccessvideodir/vdrtranscode.xml",
+  $traco->changexmlfile({file=>"$proccessvideodir/$tracoenv->{'traco_xml'}",
 				action=>'change',
 				field=>'status',
 				to=>'offline',
@@ -449,7 +450,7 @@ if ( not ( -e "$proccessvideodir/vdrtranscode.ts" ) ) {
 				});
   return ('filenotexist');
 }
-$traco->changexmlfile({file=>"$proccessvideodir/vdrtranscode.xml",
+$traco->changexmlfile({file=>"$proccessvideodir/$tracoenv->{'traco_xml'}",
 				action=>'change',
 				field=>'status',
 				to=>'proccessing',
@@ -477,9 +478,9 @@ my $profile = \$traco->prepareprofile ({
       }) ;
 ${$profile}->{'setcpu'} =  $tracoenv->{'setcpu'};
 
-$traco->message ({msg=>"analyse $proccessvideodir/vdrtranscode.ts",}) ;
+$traco->message ({msg=>"analyse $proccessvideodir/$tracoenv->{'traco_ts'}",}) ;
 
-my $hba = \$traco->handbrakeanalyse({file=>"$proccessvideodir/vdrtranscode.ts",
+my $hba = \$traco->handbrakeanalyse({file=>"$proccessvideodir/$tracoenv->{'traco_ts'}",
 						nice=>$tracoenv->{'nice'},
 						handbrake=>$tracoenv->{'hb_bin'},
 						kbps=>'true',
@@ -490,7 +491,7 @@ my $hba = \$traco->handbrakeanalyse({file=>"$proccessvideodir/vdrtranscode.ts",
 						aac_bitrate=>${$profile}->{'AAC_Bitrate'},
 						});
 
-my $totalframes = $traco->getfromxml({file=>"$proccessvideodir/vdrtranscode.xml",field=>'totalframes',debug=>$tracoenv->{'debug_flag'},});
+my $totalframes = $traco->getfromxml({file=>"$proccessvideodir/$tracoenv->{'traco_xml'}",field=>'totalframes',debug=>$tracoenv->{'debug_flag'},});
 
 if ( not ( $totalframes ) ) {
 # check marks and resolve start and end point
@@ -628,7 +629,7 @@ if ( ${$config}->{'executeafter'} ) {
       waitpid $execafterpid,0;
 }
 
-$traco->changexmlfile({file=>"$postproccessdir/vdrtranscode.xml",
+$traco->changexmlfile({file=>"$postproccessdir/$tracoenv->{'traco_xml'}",
 				action=>'change',
 				field=>'status',
 				to=>'renameaftertranscode',

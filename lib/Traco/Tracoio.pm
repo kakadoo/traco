@@ -366,12 +366,11 @@ if ( ${$files} =~ /\s/smx ) {
 
 my $opentype = '>:raw';
 
-if ( -e "${$dir}/$destinationfile" ) {
-  $opentype = '>>:raw';
-}
-
 for my $file (@infiles) {
-    if ( $file eq q{} ) { next ;};
+   if ( $file eq q{} ) { next ;};
+	if ( -e "${$dir}/$destinationfile" ) {
+		$opentype = '>>:raw';
+	}
     $self->message ({msg=>"[joinfiles]proccess ${$dir}/$file",debug=>${$dbg},v=>'vvv',});
     open $fh_out, $opentype , "${$dir}/$destinationfile" or croak "can't open ${$dir}/$destinationfile $ERRNO";
     open my $fh_in, '<:raw', "${$dir}/$file" or croak "can't open ${$dir}/$file $ERRNO";
