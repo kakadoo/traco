@@ -16,7 +16,7 @@ use Traco::Traco ;
 use feature qw/switch/;
 #use Data::Dumper;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 # 0.03 fix delete
 # 0.04 no use of indir form config anymore.

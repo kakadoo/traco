@@ -26,7 +26,7 @@ use Traco::Traco 0.20;
 # now feature from 5.10
 use feature qw/switch/;
 
-our $VERSION = '0.22';
+our $VERSION = '0.23';
 
 use constant HD => { 1920 => 1080, 1280 => 720, 720 => 480, };
 # declarations
