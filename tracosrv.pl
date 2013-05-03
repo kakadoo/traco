@@ -244,7 +244,7 @@ for my $v (@videolist) {
     if ( $#tmp < 0 ) { push @videoqueue,"$videopath $status"; }
    }
  else {
- 		my $vdrfiles = \$traco->chkvdrfiles({dir=>$videopath,verversion=>$tracoenv->{'vdrversion'}, });
+ 		my $vdrfiles = \$traco->chkvdrfiles({dir=>$videopath,vdrversion=>$tracoenv->{'vdrversion'}, });
  		
     if ( ${$vdrfiles}->{info} ne 'missing' ) {
       my $createxmlrc = \$traco->createvdrtranscodexml({dir=>$videopath,
@@ -351,7 +351,15 @@ foreach my $st (@videoqueue) {
                                         to=>'offline',
                                         debug=>$tracoenv->{'debug_flag'},
                                       });
+      } else {
+          $traco->changexmlfile({file=>"$dir/$tracoenv->{'traco_xml'}",
+                                        action=>'change',
+                                        field=>'status',
+                                        to=>'online',
+                                        debug=>$tracoenv->{'debug_flag'},
+                                      });
       }
+      
       } else {
 			$traco->changexmlfile({
 				file=>"$dir/$tracoenv->{'traco_xml'}",
@@ -376,7 +384,7 @@ foreach my $st (@videoqueue) {
 					      marksfile=>${$vdrfiles}->{'marks'},
 					      indexfile=>${$vdrfiles}->{'index'},
 					      });
-	if ( ${$cutrc} eq 'combine_ts_done' ) {
+	if ( ${$cutrc} =~ /[_]done$/smx ) {
 	  $traco->changexmlfile({file=>"$dir/$tracoenv->{'traco_xml'}",
 					action=>'change',
 					field=>'status',
@@ -568,6 +576,9 @@ if ( ( ${$hba}->{'audioopts'}->{'ac3tracks'} > 0 ) and ( ${$hba}->{'audioopts'}-
 
 my $newdir=$proccessvideodir;
 $newdir =~ s/[&]/\\&/gmixs;
+$newdir =~ s/[(]/\\(/gmisx ;
+$newdir =~ s/[)]/\\)/gmisx ;
+
 my $runline;
 if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
   $runline=\$traco->buildrunline({profile=>${$profile},
