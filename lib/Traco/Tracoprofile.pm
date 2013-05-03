@@ -41,7 +41,7 @@ default => {
 	    quality=>{ UVHQ =>'7000', VHQ =>'3700',HQ =>'1200',MQ =>'800',LQ =>'600',VLQ =>'400' },
 	    codec_ratio=> {mpeg4 => ' 0.0135', h264 => '0.012345',},
 	    quality_ratio => { HQ => '0.35' , VHQ => '0.55', UVHQ => '1.0',},
-	    keys=>'shortname name resolution container pixel ypixel anamorph modulus quality crop largefile audiotracks codec codecopts',
+	    keys => 'shortname name resolution container pixel ypixel anamorph modulus quality crop largefile audiotracks codec codecopts',
 	  },
 HD => { shortname=>'HD',
 	name=>'HD (1080p) Profile with UVHQ bitrate',
@@ -73,8 +73,7 @@ SD => { shortname=>'SD',name=>'SD (480p) Profile with HQ Bitrate',
 	anamorph=>'--loose-anamorphic',
 	modulus=>'8',
         quality=>'HQ',
-	audiotracks=>'all',
-      },
+	audiotracks=>'all',},
 
 PAL => { shortname=>'PAL',name=>'SD (PAL Resolution) Profile with HQ Bitrate',
 	resolution=>'PAL',
@@ -100,6 +99,16 @@ TRANSFORMER => { shortname=>'TF101', name=>'Asus EeePC Transformer Profile ( And
 		  crop=>'auto',
 		  quality=>'rf:20',
 		  codecopts=>'-x mixed-refs=0:weightb=0:subq=7:ref=4:deblock=-2,-1:trellis=1:analyse=some',},
+
+SDMKV => { shortname=>'SD-MKV',name=>'SD (480p) Profile with HQ Bitrate MKV Container',
+	resolution=>'480p',
+	container=>'mkv',
+	pixel => '852',
+	ypixel => '480',
+	anamorph=>'--loose-anamorphic',
+	modulus=>'8',
+        quality=>'HQ',
+	audiotracks=>'all',},
 };
 
 $profile->{'SD'}->{'codec'} = $profile->{'default'}->{'codec'};
@@ -115,7 +124,7 @@ $profile->{'PAL'}->{'codec'} = $profile->{'default'}->{'codec'};
 $profile->{'PAL'}->{'codecopts'} = $profile->{'default'}->{'codecopts'};
 
 # hier neues profile (name) eintragen
-$profile->{'default'}->{'profiles'} = 'SD HD smallHD PAL TRANSFORMER';
+$profile->{'default'}->{'profiles'} = 'SD HD smallHD PAL TRANSFORMER SDMKV';
 
 
 sub getprofile {
