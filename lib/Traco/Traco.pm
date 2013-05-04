@@ -19,7 +19,7 @@ use feature qw/switch/;
 use File::Find;
 use Sys::Hostname;
 use File::Basename;
-#use Data::Dumper;
+use Data::Dumper;
 use Fcntl ':flock';
 use Sys::Syslog qw/:DEFAULT setlogsock/;
 use constant { EINSNULLNULLNULL => 1000,
@@ -402,13 +402,52 @@ if ( not ( ${$useclassic} ) ) {
 }
 
 $runline .= ' -5';
+
 if ( ${$hba}->{'audioopts'}->{'audiotracks'} ) {
- $runline .= " -a ${$hba}->{'audioopts'}->{'audiotracks'}"; #${$tracoenv}->{'audiotracks'}";
+my $trackcount = ${$hba}->{'audioopts'}->{'audiotracks'} - 1 ;
+
+	$runline .= ' -a ';
+	for my $i ( 1 .. ${$hba}->{'audioopts'}->{'audiotracks'} ) {
+		$runline .= "$i,";
+	}
+	$runline =~ s/[,]$//gsmx;
+
+	$runline .= ' -A ';
+	for my $i ( 0 .. $trackcount ) {
+		my $lang = ${$hba}->{"audiotrack[$i]options"}->{'lang'};
+		$runline .= "$lang,";
+	}
+	$runline =~ s/[,]$//gsmx;
+	
+	$runline .= ' -E ';
+	for my $i ( 1 .. ${$hba}->{'audioopts'}->{'audiotracks'} ) {
+		$runline .= 'copy:*,';
+	}
+	$runline =~ s/[,]$//gsmx;
+	
+	$runline .= ' -B ';
+	for my $i ( 0 .. $trackcount ) {
+		if ( ${$hba}->{"audiotrack[$i]options"}->{'bitrate'} ) {
+			my $bitrate = ${$hba}->{"audiotrack[$i]options"}->{'bitrate'} ;
+			$runline .= "$bitrate,";
+		} else {
+			$runline .= ' ,';
+		}
+	}
+	$runline =~ s/[,]$//gsmx;
+	
+	$runline .= ' -D ';
+	for my $i ( 1 .. ${$hba}->{'audioopts'}->{'audiotracks'} ) {
+		$runline .= "${$hba}->{'audioopts'}->{'audionormalizer'}," ;
+	}
+	$runline =~ s/[,]$//gsmx;
+	
 } elsif ( ${$hba}->{'audiotracks'} ) {
- $runline .= " -a ${$hba}->{'audiotracks'}"; #${$tracoenv}->{'audiotracks'}";
+	$runline .= " -a ${$hba}->{'audiotracks'}"; #${$tracoenv}->{'audiotracks'}";
+	$runline .= " -A ${$hba}->{'audioopts'}->{'lang'} -E ${$hba}->{'audioopts'}->{'audioencoder'}"; #${$tracoenv}->{'lang'} -E ${$tracoenv}->{'audioencoder'}" ;
+	$runline .= " -B ${$hba}->{'audioopts'}->{'audiobitrate'} -D ${$hba}->{'audioopts'}->{'audionormalizer'}"; #${$tracoenv}->{'audiobitrate'} -D ${$tracoenv}->{'audionormalizer'}";
 }
-$runline .= " -A ${$hba}->{'audioopts'}->{'lang'} -E ${$hba}->{'audioopts'}->{'audioencoder'}"; #${$tracoenv}->{'lang'} -E ${$tracoenv}->{'audioencoder'}" ;
-$runline .= " -B ${$hba}->{'audioopts'}->{'audiobitrate'} -D ${$hba}->{'audioopts'}->{'audionormalizer'}"; #${$tracoenv}->{'audiobitrate'} -D ${$tracoenv}->{'audionormalizer'}";
+
 if ( ${$profile}->{'param_anamorph'} ) {
   $runline .= " ${$profile}->{'param_anamorph'}";
 }
@@ -523,6 +562,8 @@ my @tmpdb2;
 # prepare & in path
 my $workfile = ${$file} ;
 $workfile =~ s/[&]/\\&/gmisx ;
+$workfile =~ s/[(]/\\(/gmisx ;
+$workfile =~ s/[)]/\\)/gmisx ;
 
 my $runline = "nice -n ${$mynice} ${$handbrake} --scan";
 if ( ${$starttime} )  { $runline .= " --start-at duration:${$starttime}"; }
@@ -563,8 +604,11 @@ for my $o (@stage3options) {
     $returndb->{$key} = $value || q{};
 }
 
+
+
 if (${$fpstype} =~ /^(?:vdr|VDR)$/smx ) {
   my $dir = dirname ${$file};
+
   my $vdrfps = \$self->getfromxml({file=>"$dir/vdrtranscode.xml",
 				      field=>'frames',
 					block=>'vdrinfo',
