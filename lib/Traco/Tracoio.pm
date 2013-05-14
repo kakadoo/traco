@@ -229,13 +229,24 @@ my $start_ts = q{};
 my $vdrversion = '1.7';
 my @filelist=\$self->_get_files_in_dir ({dir=>${$source_dir},});
 
-foreach my $f (@filelist) {
-#print "${$f} ${$fileno}\n";
-  if (${$f} =~ /(${$fileno})[.]vdr$/smx ) {
+my $l = length ${$fileno};
+my $n = 4 - $l;
+my $fill;
+
+for my $i ( 0 .. $n ) {
+        $fill .= '0';
+}
+my $vdrfile = "$fill${$fileno}";
+
+#print "***$vdrfile\n";
+
+for my $f (@filelist) {
+
+	if (${$f} =~ /($vdrfile)[.]vdr$/smx ) {
     $start_ts = ${$f};
     $vdrversion = '1.6';
   }
-  if (${$f} =~ /(${$fileno})[.]ts$/smx ) {
+  if (${$f} =~ /($vdrfile)[.]ts$/smx ) {
     $start_ts = ${$f};
   }
 
