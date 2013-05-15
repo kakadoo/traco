@@ -10,7 +10,7 @@
 #                    placed in /etc/init.d.
 ### END INIT INFO
 
-# Author: Holger Glaess <glaess@glaessixs.de>
+# Author: Holger Glaess <glaess@glaessixs.de> 2013
 #
 # Do NOT "set -e"
 
