@@ -238,7 +238,6 @@ for my $i ( 0 .. $n ) {
 }
 my $vdrfile = "$fill${$fileno}";
 
-#print "***$vdrfile\n";
 
 for my $f (@filelist) {
 
