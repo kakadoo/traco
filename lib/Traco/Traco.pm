@@ -10,6 +10,8 @@ use Traco::Tracoxml ;
 use Traco::Tracoprofile ;
 use Traco::Tracorenamefile ;
 use Traco::Tracovdr ;
+#use Traco::Tracohandbrake;
+
 #
 use English '-no_match_vars';
 use Carp;
@@ -45,6 +47,7 @@ use base qw(Exporter Traco::Tracoio
 							Traco::Tracoprofile 
 							Traco::Tracorenamefile
 							Traco::Tracovdr
+							Traco::Tracohandbrake
 							);
 
 @EXPORT_OK = qw(prepare_traco_ts 
@@ -403,50 +406,20 @@ if ( not ( ${$useclassic} ) ) {
 
 $runline .= ' -5';
 
-if ( ${$hba}->{'audioopts'}->{'audiotracks'} ) {
-my $trackcount = ${$hba}->{'audioopts'}->{'audiotracks'} - 1 ;
-
-	$runline .= ' -a ';
-	for my $i ( 1 .. ${$hba}->{'audioopts'}->{'audiotracks'} ) {
-		$runline .= "$i,";
-	}
-	$runline =~ s/[,]$//gsmx;
-
-	$runline .= ' -A ';
-	for my $i ( 0 .. $trackcount ) {
-		my $lang = ${$hba}->{"audiotrack[$i]options"}->{'lang'};
-		$runline .= "$lang,";
-	}
-	$runline =~ s/[,]$//gsmx;
-	
-	$runline .= ' -E ';
-	for my $i ( 1 .. ${$hba}->{'audioopts'}->{'audiotracks'} ) {
-		$runline .= 'copy:*,';
-	}
-	$runline =~ s/[,]$//gsmx;
-	
-	$runline .= ' -B ';
-	for my $i ( 0 .. $trackcount ) {
-		if ( ${$hba}->{"audiotrack[$i]options"}->{'bitrate'} ) {
-			my $bitrate = ${$hba}->{"audiotrack[$i]options"}->{'bitrate'} ;
-			$runline .= "$bitrate,";
-		} else {
-			$runline .= ' ,';
-		}
-	}
-	$runline =~ s/[,]$//gsmx;
-	
-	$runline .= ' -D ';
-	for my $i ( 1 .. ${$hba}->{'audioopts'}->{'audiotracks'} ) {
-		$runline .= "${$hba}->{'audioopts'}->{'audionormalizer'}," ;
-	}
-	$runline =~ s/[,]$//gsmx;
-	
-} elsif ( ${$hba}->{'audiotracks'} ) {
-	$runline .= " -a ${$hba}->{'audiotracks'}"; #${$tracoenv}->{'audiotracks'}";
-	$runline .= " -A ${$hba}->{'audioopts'}->{'lang'} -E ${$hba}->{'audioopts'}->{'audioencoder'}"; #${$tracoenv}->{'lang'} -E ${$tracoenv}->{'audioencoder'}" ;
-	$runline .= " -B ${$hba}->{'audioopts'}->{'audiobitrate'} -D ${$hba}->{'audioopts'}->{'audionormalizer'}"; #${$tracoenv}->{'audiobitrate'} -D ${$tracoenv}->{'audionormalizer'}";
+if ( ${$hba}->{'audiotracks'} > 1 ) {
+	$runline .= " -a ${$hba}->{'audioopts'}->{'audiotracks'}";
+#	$runline .= " -A ${$hba}->{'audioopts'}->{'lang'}";
+#	$runline .= " -E ${$hba}->{'audioopts'}->{'audioencoder'}";
+#	$runline .= " -B ${$hba}->{'audioopts'}->{'audiobitrate'}";
+#	$runline .= " -D ${$hba}->{'audioopts'}->{'audionormalizer'}";
+} elsif ( ${$hba}->{'audiotracks'} = 1 ) {
+	$runline .= " -a ${$hba}->{'audiotracks'}";
 }
+	$runline .= " -A ${$hba}->{'audioopts'}->{'lang'}";
+	$runline .= " -E ${$hba}->{'audioopts'}->{'audioencoder'}"; 
+	$runline .= " -B ${$hba}->{'audioopts'}->{'audiobitrate'}";
+	$runline .= " -D ${$hba}->{'audioopts'}->{'audionormalizer'}";
+
 
 if ( ${$profile}->{'param_anamorph'} ) {
   $runline .= " ${$profile}->{'param_anamorph'}";
@@ -503,30 +476,32 @@ given (${$audiotrack}) {
     }
   } # end when first
   when ( $_ =~ /^(?:all|ALL)$/smx ) {
+
     $self->message ({msg=>'[prepare_audio_tracks] use all audiotracks',v=>'vvv',debug=>${$dbg},});
+    
     my $audiotracks = ${$hbanalyse}->{'audiotracks'} -1;
-    foreach my $i ( 0 ..$audiotracks ) {
+    foreach my $i ( 0 .. $audiotracks ) {
     if (exists ${$hbanalyse}->{"audiotrack[$i]options"} ) {
-    my $audiotrackoptions = ${$hbanalyse}->{"audiotrack[$i]options"};
-      if ($audiotrackoptions->{'codec'} =~ /mp2/smx ) {
-	$hbopts->{'mp2tracks'}++;
-	my $t=$i+1;
-	$hbopts->{'audiotracks'} .= "$t,";
-	$hbopts->{'lang'} .= "$audiotrackoptions->{'lang'},";
-	$hbopts->{'audioencoder'} .= 'faac,';
-      $hbopts->{'audiobitrate'} = "${$aac_bitrate},";
-      $hbopts->{'audionormalizer'} = "${$drc},";
-#	$hbopts->{'audiobitrate'} .= "${$config}->{'AAC_Bitrate'},";
-#	$hbopts->{'audionormalizer'} .= "${$config}->{'DRC'},";
-      } elsif ( $audiotrackoptions->{'codec'} =~ /AC3/smx ) {
-	$hbopts->{'ac3tracks'}++;
-	my $t=$i+1;
-	$hbopts->{'audiotracks'} .= "$t,";
-	$hbopts->{'audioencoder'} .= 'copy,';
-	$hbopts->{'audiobitrate'} .= 'auto,';
-	$hbopts->{'audionormalizer'} .= '1.0,';
-	$hbopts->{'lang'} .= "$audiotrackoptions->{'lang'},";
-	$hbopts->{'kbps'} .= "$audiotrackoptions->{'bitrate'}," ;
+    	my $audiotrackoptions = ${$hbanalyse}->{"audiotrack[$i]options"};
+      if ($audiotrackoptions->{'codec'} =~ /^(?:mp2|MPEG1)$/smx ) {
+			$hbopts->{'mp2tracks'}++;
+			my $t=$i+1;
+			$hbopts->{'audiotracks'} .= "$t,";
+			$hbopts->{'lang'} .= "$audiotrackoptions->{'lang'},";
+			$hbopts->{'audioencoder'} .= 'faac,';
+      	$hbopts->{'audiobitrate'} .= "${$aac_bitrate},";
+      	$hbopts->{'audionormalizer'} .= "${$drc},";
+			#	$hbopts->{'audiobitrate'} .= "${$config}->{'AAC_Bitrate'},";
+			#	$hbopts->{'audionormalizer'} .= "${$config}->{'DRC'},";
+      } elsif ( $audiotrackoptions->{'codec'} =~ /^(?:AC3|AC-3)$/smx ) {
+			$hbopts->{'ac3tracks'}++;
+			my $t=$i+1;
+			$hbopts->{'audiotracks'} .= "$t,";
+			$hbopts->{'audioencoder'} .= 'copy,';
+			$hbopts->{'audiobitrate'} .= 'auto,';
+			$hbopts->{'audionormalizer'} .= '1.0,';
+			$hbopts->{'lang'} .= "$audiotrackoptions->{'lang'},";
+			$hbopts->{'kbps'} .= "$audiotrackoptions->{'bitrate'}," ;
       }
     }
     }
@@ -565,7 +540,7 @@ $workfile =~ s/[&]/\\&/gmisx ;
 $workfile =~ s/[(]/\\(/gmisx ;
 $workfile =~ s/[)]/\\)/gmisx ;
 
-my $runline = "nice -n ${$mynice} ${$handbrake} --scan";
+my $runline = "nice -n ${$mynice} ${$handbrake} --scan --no-dvdnav";
 if ( ${$starttime} )  { $runline .= " --start-at duration:${$starttime}"; }
 $runline .= " -i $workfile -o /dev/null -t 0 2>&1";
 my $analyse = $self->_runexternal({line=>$runline,debug=>${$dbg},});
@@ -585,12 +560,12 @@ my @stage3options = grep { /fps/smx } @tmpdb2;
 # prepare Chapter , Audio , Subtitle
 my $returndb = $self->_handbrakeanalyse_cas({cas=>\@tmpdb,kbps=>${$kbps},debug=>${$dbg},});
 
-$returndb->{'audioopts'} = $self->prepare_audio_tracks({audiotrack=>${$audiotrack},
+$returndb->{'audioopts'} = $self->prepare_audio_tracks({
+  audiotrack=>${$audiotrack},
   hbanalyse=>$returndb,
   kbps=>${$kbps},
   drc=>${$drc},
   aac_bitrate=>${$aac_bitrate},
-  audiotrack=>${$audiotrack},
   debug=>${$dbg},});
 
 for my $o (@stage1options) {
@@ -972,11 +947,11 @@ my $wish_bitrate = \$args->{'wish_bitrate'} ; # in kbit
 
 #print "frames 	    = ${$frames}\n";
 #print "fps    	    = ${$fps}\n";
-#print "aac_nr 	    = ${$aac_nr}\n";
+#print "aac_nr 	    = ${$aac_nr}\n"; # trackcount
 #print "aac_bitrate  = ${$aac_bitrate}\n";
 #if ( ( ${$ac3_bitrate} ) and ( ${$ac3_nr} ) ) { 
 #print "ac3_bitrate  = ${$ac3_bitrate}\n"; 
-#print "ac3_nr       = ${$ac3_nr}\n";
+#print "ac3_nr       = ${$ac3_nr}\n"; # trac count
 #}
 #print "wish_bitrate = ${$wish_bitrate}\n";
 #
@@ -1005,12 +980,8 @@ if ( ( ${$aac_nr} ) and ( ${$aac_nr} > 0 ) ) {
 #my $a=$aac_bitrate_inbyte / $EINSNULLZWEIVIER;
 #my $b=${$frames} / ${$fps} ;
 #my $c = $b * ${$aac_nr};
-  $audiokbyte = sprintf '%.8f' , ( $aac_bitrate_inbyte / EINSNULLZWEIVIER ) * ( ${$frames} / ${$fps} )  ; # ohne Overhead
-  $audiokbyte = $audiokbyte * ${$aac_nr} ;
-#my $test = $a * $b;
-#print "$test\n";
-
-#print "audiokbyte $audiokbyte \n";
+		$audiokbyte = sprintf '%.8f' , ( $aac_bitrate_inbyte / EINSNULLZWEIVIER ) * ( ${$frames} / ${$fps} )  ; # ohne Overhead
+		$audiokbyte = $audiokbyte * ${$aac_nr} ;
 }
 
 #  print "\$AudioKbyte $AudioKbyte\n" ;
