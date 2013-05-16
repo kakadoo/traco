@@ -21,7 +21,7 @@ use feature qw/switch/;
 use File::Find;
 use Sys::Hostname;
 use File::Basename;
-use Data::Dumper;
+#use Data::Dumper;
 use Fcntl ':flock';
 use Sys::Syslog qw/:DEFAULT setlogsock/;
 use constant { EINSNULLNULLNULL => 1000,
