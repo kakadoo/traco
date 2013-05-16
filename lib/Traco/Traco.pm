@@ -47,7 +47,6 @@ use base qw(Exporter Traco::Tracoio
 							Traco::Tracoprofile 
 							Traco::Tracorenamefile
 							Traco::Tracovdr
-							Traco::Tracohandbrake
 							);
 
 @EXPORT_OK = qw(prepare_traco_ts 
