@@ -798,6 +798,8 @@ sub _writelog {
 my  ($self,$args) = @_;
 my $line = \$args->{'line'};
 my $file = \$args->{'file'};
+${$file} =~ s/\\//gsmx;
+
 	my @tmp;
 	push @tmp,${$line};
 	my $logrc = \$self->writefile({file=>${$file},content=>\@tmp,options=>'>>',});
