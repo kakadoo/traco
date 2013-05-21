@@ -194,6 +194,11 @@ my $dbg = \$self->{'debug'}  ;
 my ($sec,$min,$hour,$mday,$mon,$jahr,$wday) = localtime ;
 my $year=NEUNZEHNNULLNULL+$jahr;
 my $mo = $mon+1 ;
+
+$min = sprintf "%02d" , $min;
+$hour = sprintf "%02d" , $hour;
+$sec = sprintf "%02d" , $sec;
+
 given ($tiformat) {
   when ( /^1$/smx ) {
     $ti = "$hour$min$mday$mo$year";
@@ -482,7 +487,7 @@ given (${$audiotrack}) {
     foreach my $i ( 0 .. $audiotracks ) {
     if (exists ${$hbanalyse}->{"audiotrack[$i]options"} ) {
     	my $audiotrackoptions = ${$hbanalyse}->{"audiotrack[$i]options"};
-      if ($audiotrackoptions->{'codec'} =~ /^(?:mp2|MPEG1)$/smx ) {
+      if ($audiotrackoptions->{'codec'} =~ /^(?:mp2|MPEG1|MPEG2)$/smx ) {
 			$hbopts->{'mp2tracks'}++;
 			my $t=$i+1;
 			$hbopts->{'audiotracks'} .= "$t,";
@@ -798,7 +803,7 @@ sub _writelog {
 my  ($self,$args) = @_;
 my $line = \$args->{'line'};
 my $file = \$args->{'file'};
-${$file} =~ s/\\//gsmx;
+#${$file} =~ s/\\//gsmx;
 
 	my @tmp;
 	push @tmp,${$line};
@@ -937,6 +942,7 @@ return ($param_crop);
 }
 sub recalculate_video_bitrate {
 my ($self,$args) = @_ ;
+
 my $frames = \$args->{'frames'} ;
 my $fps = \$args->{'fps'};
 my $aac_nr = \$args->{'aac_nr'};
