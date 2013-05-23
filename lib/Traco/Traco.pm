@@ -66,9 +66,11 @@ use base qw(Exporter Traco::Tracoio
 						prepare_crop 
 						buildrunline _
 						handbrakeanalyse_cas 
-						_parse_config_value);
+						_parse_config_value
+						gettotalframes
+						);
 
-$VERSION = '0.21';
+$VERSION = '0.22';
 
 #
 # 0.01 inital version
@@ -107,13 +109,14 @@ my $vdr_index = \$args->{indexfile};
 if (${$vdr_marks} eq q{} ) {
 my $files = \$self->getfromxml({file=>$xmlfile,field=>'files',debug=>${$dbg},});
 my $info = \$self->parsevdrinfo({dir=>${$dir},file=>${$vdr_info},debug=>${$dbg},});
-my $totalframes = ${$info}->{'duration'} * ${$info}->{'frames'};
+
+#my $totalframes = ${$info}->{'duration'} * ${$info}->{'frames'};
 
   if ( ( defined ${$files} ) and ( ${$files} ne q{} ) ) {
     my $rc=\$self->_joinfiles({dir=>${$dir},files=>${$files},debug=>${$dbg},});
     if (${$rc} eq 'joindone') {
       $self->changexmlfile({file=>$xmlfile,action=>'change',field=>'status',to=>'online',debug=>${$dbg},});
-      $self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>$totalframes,debug=>${$dbg},});
+#      $self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>$totalframes,debug=>${$dbg},});
     }
     undef $files;
   } else {
@@ -140,6 +143,39 @@ my $totalframes = ${$info}->{'duration'} * ${$info}->{'frames'};
 }
 
 return ($returncode);
+}
+
+sub gettotalframes {
+my ($self,$args) = @_;
+my $dir = \$args->{dir};
+my $vdrfiles = \$args->{vdrfiles};
+my $dbg = \$args->{debug};
+my $fps = \$args->{fps};
+my $duration = \$args->{duration}
+my $totalframes ;
+my $xmlfile = "${$dir}/vdrtranscode.xml";
+
+# check marks and resolve start and end point
+# if marks not available use start / stop time from info
+     
+      if ( ${$vdrfiles}->{marks} ne 'missing' ) {
+			my $vdrmarks = \$self->parsevdrmarks({dir=>${$dir},
+				    fps=>${$fps},
+				    duration=>${$duration},
+				    debug=>${$dbg},
+				    marksfile=>${$vdrfiles}->{marks},
+				   });
+   		$totalframes = ${$vdrmarks}->{'totalframes'};
+  		} else {
+  			my $vdrinfo = \$self->parsevdrinfo({dir=>${$dir},
+				    debug=>${$dbg},
+			});
+			$totalframes = ${$vdrinfo}->{duration} * ${$vdrinfo}->{frames};
+  		}	
+
+$self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>$totalframes,debug=>${$dbg},});
+
+return $totalframes;
 }
 sub run_handbrake {
 my ($self,$args) = @_;
@@ -803,7 +839,6 @@ sub _writelog {
 my  ($self,$args) = @_;
 my $line = \$args->{'line'};
 my $file = \$args->{'file'};
-#${$file} =~ s/\\//gsmx;
 
 	my @tmp;
 	push @tmp,${$line};
