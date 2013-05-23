@@ -107,8 +107,20 @@ SDMKV => { shortname=>'SD-MKV',name=>'SD (480p) Profile with HQ Bitrate MKV Cont
 	ypixel => '480',
 	anamorph=>'--loose-anamorphic',
 	modulus=>'8',
-        quality=>'HQ',
+   quality=>'HQ',
 	audiotracks=>'all',},
+
+smallHDMKV => { shortname=>'smallHD',
+	     name=>'HD (720p) Profile with VHQ bitrate MKV Container',
+	     resolution=> '720p',
+	     container=>'mkv',
+	     pixel => '1280',
+	     ypixel => '720',
+	     anamorph=>'--loose-anamorphic',
+	     modulus=>'8',
+	     quality=>'VHQ',
+	     audiotracks=>'all',
+	    },
 };
 
 $profile->{'SD'}->{'codec'} = $profile->{'default'}->{'codec'};
@@ -123,8 +135,14 @@ $profile->{'smallHD'}->{'codecopts'} = $profile->{'default'}->{'codecopts'};
 $profile->{'PAL'}->{'codec'} = $profile->{'default'}->{'codec'};
 $profile->{'PAL'}->{'codecopts'} = $profile->{'default'}->{'codecopts'};
 
+$profile->{'SDMKV'}->{'codec'} = $profile->{'default'}->{'codec'};
+$profile->{'SDMKV'}->{'codecopts'} = $profile->{'default'}->{'codecopts'};
+
+$profile->{'smallHDMKV'}->{'codec'} = $profile->{'default'}->{'codec'};
+$profile->{'smallHDMKV'}->{'codecopts'} = $profile->{'default'}->{'codecopts'};
+
 # hier neues profile (name) eintragen
-$profile->{'default'}->{'profiles'} = 'SD HD smallHD PAL TRANSFORMER SDMKV';
+$profile->{'default'}->{'profiles'} = 'SD HD smallHD PAL TRANSFORMER SDMKV smallHDMKV';
 
 
 sub getprofile {
