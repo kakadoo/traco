@@ -107,7 +107,7 @@ $self->message({msg=>'combine_ts: get Byte Positions based on marks',debug=>${$d
 
 my $ref_marks = \$self->parsevdrmarks({dir=>$source_ts_dir,fps=>${$fps},debug=>${$dbg},marksfile=>${$marksfile},});
 
-$self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>${$ref_marks}->{'totalframes'},debug=>${$dbg},});
+#$self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>${$ref_marks}->{'totalframes'},debug=>${$dbg},});
 
 my $cutcount = ${$ref_marks}->{'cutcount'}-1;
 
@@ -396,6 +396,7 @@ return ('joindone');
 
 sub writefile {
 my ($self,$args) = @_;
+my @CA = caller (1);
 my $file = \$args->{'file'};
 my $o = \$args->{'options'};
 my @content = @{$args->{'content'}};
@@ -406,7 +407,11 @@ if (${$o}) {
 open my $WRITE , $options , ${$file} or croak "can't open ${$file} for writefile $ERRNO";
     flock $WRITE, LOCK_EX or croak "can't lock ${$file} for writefile $ERRNO";
     foreach my $l (@content) {
-      print {$WRITE} "$l\n" or croak "can't write to ${$file} for writefile $ERRNO";
+    	if ( $CA[3] !~ /writelog$/smx ) {
+      	print {$WRITE} "$l\n" or croak "can't write to ${$file} for writefile $ERRNO";
+      } else {
+        	print {$WRITE} $l or croak "can't write to ${$file} for writefile $ERRNO";
+      }
     }
     flock $WRITE, LOCK_UN or croak "can't close ${$file} for writefile $ERRNO";
 close $WRITE or croak $ERRNO;
