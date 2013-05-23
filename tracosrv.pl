@@ -499,23 +499,36 @@ my $hba = \$traco->handbrakeanalyse({file=>"$proccessvideodir/$tracoenv->{'traco
 						aac_bitrate=>${$profile}->{'AAC_Bitrate'},
 						});
 
-my $totalframes = $traco->getfromxml({file=>"$proccessvideodir/$tracoenv->{'traco_xml'}",field=>'totalframes',debug=>$tracoenv->{'debug_flag'},});
+#my $totalframes = $traco->getfromxml({file=>"$proccessvideodir/$tracoenv->{'traco_xml'}",field=>'totalframes',debug=>$tracoenv->{'debug_flag'},});
 
-if ( not ( $totalframes ) ) {
+
+#if ( not ( $totalframes ) ) {
 # check marks and resolve start and end point
-# if marks not available use start / stop time form info
-      my $vdrfiles = \$traco->chkvdrfiles({dir=>$proccessvideodir,vdrversion=>$tracoenv->{'vdrversion'},});
-     
-      if ( ${$vdrfiles}->{marks} ne 'missing' ) {
-    my $vdrmarks = \$traco->parsevdrmarks({dir=>$proccessvideodir,
-				    fps=>${$hba}->{'fps'},
-				    duration=>${$hba}->{'duration'},
-				    debug=>$tracoenv->{'debug_flag'},
-				    marksfile=>${$vdrfiles}->{marks},
-				   });
-   $totalframes =  ${$vdrmarks}->{'totalframes'};
-  }
-}
+# if marks not available use start / stop time from info
+my $vdrfiles = \$traco->chkvdrfiles({dir=>$proccessvideodir,vdrversion=>$tracoenv->{'vdrversion'},});
+my $totalframes = \$traco->gettotalframes({
+ 				dir=>$proccessvideodir,
+ 				debug=>$tracoenv->{'debug_flag'},
+ 				fps=>${$hba}->{'fps'},
+ 				duration=>${$hba}->{'duration'}	
+ 			)};
+
+#      if ( ${$vdrfiles}->{marks} ne 'missing' ) {
+#			my $vdrmarks = \$traco->parsevdrmarks({dir=>$proccessvideodir,
+#				    fps=>${$hba}->{'fps'},
+#				    duration=>${$hba}->{'duration'},
+#				    debug=>$tracoenv->{'debug_flag'},
+#				    marksfile=>${$vdrfiles}->{marks},
+#				   });
+#  		$totalframes = ${$vdrmarks}->{'totalframes'};
+#		} else {
+#			my $vdrinfo = \$traco->parsevdrinfo({dir=>$proccessvideodir,
+#				    debug=>$tracoenv->{'debug_flag'},
+#			});
+#			$totalframes = ${$vdrinfo}->{duration} * ${$vdrinfo}->{frames};
+# 		}	
+#}
+
 
 if ( ( not ( ${$profile}->{'crop'} ) ) or ( ${$profile}->{'crop'} !~ /^auto$/smx ) ) {
   ${$profile}->{'crop'} = $traco->prepare_crop({crop=>${$hba}->{'autocrop'},});
@@ -534,12 +547,14 @@ $traco->message({msg=>"crop ${$profile}->{'crop'}",verbose=>'v',}) ;
 $traco->message({msg=>"modulus ${$profile}->{'modulus'}",verbose=>'v',}) ;
 $traco->message({msg=>"setcpu ${$profile}->{'setcpu'}",verbose=>'v',}) ;
 $traco->message({msg=>"codec ${$profile}->{'codec'}",verbose=>'v',}) ;
+$traco->message({msg=>"total frames $totalframes",verbose=>'v',}) ;
+
 if ( ${$profile}->{'codecopts'} ) {
-$traco->message({msg=>"codecopts ${$profile}->{'codecopts'}",verbose=>'v',}) ;
+	$traco->message({msg=>"codecopts ${$profile}->{'codecopts'}",verbose=>'v',}) ;
 }
 
 if ( ${$profile}->{'largefile'} ) {
-$traco->message({msg=>"largefile ${$profile}->{'largefile'}",verbose=>'v',}) ;
+	$traco->message({msg=>"largefile ${$profile}->{'largefile'}",verbose=>'v',}) ;
 }
 # recalculate Videobitrate to match round Mbyte Sizes ( cosmetic programming )
 # $frames 
@@ -552,55 +567,59 @@ $traco->message({msg=>"largefile ${$profile}->{'largefile'}",verbose=>'v',}) ;
 my ( $recalc_video_bitrate , $target_mbyte_size ) = q{};
 
 if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
-if ( ( ${$hba}->{'audioopts'}->{'ac3tracks'} > 0 ) and ( ${$hba}->{'audioopts'}->{'kbps'} ) ) {
-( $recalc_video_bitrate , $target_mbyte_size ) = \$traco->recalculate_video_bitrate ({
-  frames=>$totalframes ,
-  fps=>${$hba}->{'fps'} ,
-  aac_nr=>${$hba}->{'audioopts'}->{'mp2tracks'},
-  aac_bitrate=>${$profile}->{'AAC_Bitrate'}, # in kbit
-  ac3_nr=>${$hba}->{'audioopts'}->{'ac3tracks'},
-  ac3_bitrate=>${$hba}->{'audioopts'}->{'kbps'} , # in kbps
-  wish_bitrate=>${$profile}->{'quality'}, }) ; # in kbbps
-} else {
-( $recalc_video_bitrate , $target_mbyte_size ) = \$traco->recalculate_video_bitrate ({
-  frames=>$totalframes ,
-  fps=>${$hba}->{'fps'} ,
-  aac_nr=>${$hba}->{'audioopts'}->{'mp2tracks'},
-  aac_bitrate=>${$profile}->{'AAC_Bitrate'},
-  wish_bitrate=>${$profile}->{'quality'}, }) ; # in kbbps
+
+	if ( ( ${$hba}->{'audioopts'}->{'ac3tracks'} > 0 ) and ( ${$hba}->{'audioopts'}->{'kbps'} ) ) {
+		( $recalc_video_bitrate , $target_mbyte_size ) = \$traco->recalculate_video_bitrate ({
+  			frames=>$totalframes ,
+  			fps=>${$hba}->{'fps'} ,
+  			aac_nr=>${$hba}->{'audioopts'}->{'mp2tracks'},
+  			aac_bitrate=>${$profile}->{'AAC_Bitrate'}, # in kbit
+  			ac3_nr=>${$hba}->{'audioopts'}->{'ac3tracks'},
+  			ac3_bitrate=>${$hba}->{'audioopts'}->{'kbps'} , # in kbps
+  			wish_bitrate=>${$profile}->{'quality'}, }) ; # in kbbps
+	} else {
+		( $recalc_video_bitrate , $target_mbyte_size ) = \$traco->recalculate_video_bitrate ({
+	  		frames=>$totalframes ,
+  			fps=>${$hba}->{'fps'} ,
+  			aac_nr=>${$hba}->{'audioopts'}->{'mp2tracks'},
+  			aac_bitrate=>${$profile}->{'AAC_Bitrate'},
+  			wish_bitrate=>${$profile}->{'quality'}, }) ; # in kbbps
+	}
 }
-}
-## strucure of proccesing line
+## structure of proccessing line
 ## HandBrakeCLI -i /video/Wir_sind_Kaiser_-_Best_of/2010-10-26.21.55.15-0.rec/00001.ts  -o ./test3.mp4 -e x264 -O -b 500 -2 -T -x ref=2:mixed-refs:bframes=2:b-pyramid=1:
 ## weightb=1:analyse=all:8x8dct=1:subme=7:me=umh:merange=24:trellis=1:no-fast-pskip=1:no-dct-decimate=1:direct=auto -5 -B 128  --stop-at frame:3000 --strict-anamorphic
 
 my $newdir=$proccessvideodir;
-$newdir =~ s/[&]/\\&/gmixs;
+$newdir =~ s/[&]/\\&/gmisx ;
 $newdir =~ s/[(]/\\(/gmisx ;
 $newdir =~ s/[)]/\\)/gmisx ;
 
 my $runline;
 if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
-  $runline=\$traco->buildrunline({profile=>${$profile},
-				    dir=>$newdir,
-				    hba=>${$hba},
-				    recalc_video_bitrate => ${$recalc_video_bitrate},
-				    target_mbyte_size => ${$target_mbyte_size},
-				    debug=>${$config}->{'debug_buildrunline'},
-			 	    useclassic=>${$config}->{'use_classic_profile'},
+  $runline=\$traco->buildrunline({
+					profile=>${$profile},
+				   dir=>$newdir,
+				   hba=>${$hba},
+				   recalc_video_bitrate => ${$recalc_video_bitrate},
+				   target_mbyte_size => ${$target_mbyte_size},
+				   debug=>${$config}->{'debug_buildrunline'},
+			 	   useclassic=>${$config}->{'use_classic_profile'},
 				  });
 } else {
-  $runline=\$traco->buildrunline({profile=>${$profile},
-				    dir=>$newdir,
-				    hba=>${$hba},
-				    debug=>${$config}->{'debug_buildrunline'},
-			 	    useclassic=>${$config}->{'use_classic_profile'},
+  $runline=\$traco->buildrunline({
+  					profile=>${$profile},
+				   dir=>$newdir,
+				   hba=>${$hba},
+				   debug=>${$config}->{'debug_buildrunline'},
+			 	   useclassic=>${$config}->{'use_classic_profile'},
 				  });
 }
 
+
 my $hbrc;
 if ( ${$config}->{'writelog'} ) {
- $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},writelog=>"$newdir/handbrake.log",});
+ $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},writelog=>"$proccessvideodir/handbrake.log",});
 } else {
  $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},});
 }
