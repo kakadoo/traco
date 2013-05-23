@@ -9,7 +9,7 @@ use English '-no_match_vars';
 use Carp;
 
 use feature qw/switch/;
-#use Data::Dumper;
+use Data::Dumper;
 
 use constant {DREISECHSNULLNULL => 3600,SECHSNULL => 60,};
 
@@ -147,8 +147,9 @@ my $rcdb = {}; # return db
 my $atrack = 0;
 my $infopath = ${$wrkdir};
 
-if ( -e "$infopath/info" ) { $infofile="$infopath/info";}
-if ( -e "$infopath/info.vdr" ) { $infofile="$infopath/info.vdr";}
+if ( -e "${$wrkdir}/info" ) { $infofile="${$wrkdir}/info";}
+if ( -e "${$wrkdir}/info.vdr" ) { $infofile="${$wrkdir}/info.vdr";}
+
 if ( ${$file} ) { $infofile = ${$file} ; }
 
 #if ($infofile eq q{}) { return () };
