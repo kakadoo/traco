@@ -510,8 +510,9 @@ my $totalframes = \$traco->gettotalframes({
  				dir=>$proccessvideodir,
  				debug=>$tracoenv->{'debug_flag'},
  				fps=>${$hba}->{'fps'},
- 				duration=>${$hba}->{'duration'}	
- 			)};
+ 				duration=>${$hba}->{'duration'},
+ 				vdrfiles=>${$vdrfiles},
+ 			});
 
 #      if ( ${$vdrfiles}->{marks} ne 'missing' ) {
 #			my $vdrmarks = \$traco->parsevdrmarks({dir=>$proccessvideodir,
@@ -547,7 +548,7 @@ $traco->message({msg=>"crop ${$profile}->{'crop'}",verbose=>'v',}) ;
 $traco->message({msg=>"modulus ${$profile}->{'modulus'}",verbose=>'v',}) ;
 $traco->message({msg=>"setcpu ${$profile}->{'setcpu'}",verbose=>'v',}) ;
 $traco->message({msg=>"codec ${$profile}->{'codec'}",verbose=>'v',}) ;
-$traco->message({msg=>"total frames $totalframes",verbose=>'v',}) ;
+$traco->message({msg=>"total frames ${$totalframes}",verbose=>'v',}) ;
 
 if ( ${$profile}->{'codecopts'} ) {
 	$traco->message({msg=>"codecopts ${$profile}->{'codecopts'}",verbose=>'v',}) ;
@@ -570,7 +571,7 @@ if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
 
 	if ( ( ${$hba}->{'audioopts'}->{'ac3tracks'} > 0 ) and ( ${$hba}->{'audioopts'}->{'kbps'} ) ) {
 		( $recalc_video_bitrate , $target_mbyte_size ) = \$traco->recalculate_video_bitrate ({
-  			frames=>$totalframes ,
+  			frames=>${$totalframes} ,
   			fps=>${$hba}->{'fps'} ,
   			aac_nr=>${$hba}->{'audioopts'}->{'mp2tracks'},
   			aac_bitrate=>${$profile}->{'AAC_Bitrate'}, # in kbit
@@ -579,7 +580,7 @@ if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
   			wish_bitrate=>${$profile}->{'quality'}, }) ; # in kbbps
 	} else {
 		( $recalc_video_bitrate , $target_mbyte_size ) = \$traco->recalculate_video_bitrate ({
-	  		frames=>$totalframes ,
+	  		frames=>${$totalframes} ,
   			fps=>${$hba}->{'fps'} ,
   			aac_nr=>${$hba}->{'audioopts'}->{'mp2tracks'},
   			aac_bitrate=>${$profile}->{'AAC_Bitrate'},
