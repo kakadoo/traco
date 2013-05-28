@@ -5,7 +5,7 @@
 # $HeadURL www.glaessixs.de/projekte/vdrtranscode $ 
 # $Date 29/03/2011 $
 
-# some code from vdrtranscode_server.pl from faup@vdr-portal.de
+# some code from tracosrv.pl from faup@vdr-portal.de
 # 2011-02-28
 # great thanks to this superb howto :
 # http://trac.handbrake.fr/wiki/CLIGuide
@@ -289,7 +289,7 @@ foreach my $st (@videoqueue) {
 						debug=>$tracoenv->{'debug_flag'},
 						});
       if (${$renamerc} eq '_rename_and_store_done') {
-       $traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
+       $traco->changexmlfile({file=>"$dir/$tracoenv->{'traco_xml'}",
 				     action=>'change',
 				     field=>'status',
 				     to=>'YourPictureIsReadyToView',
@@ -299,14 +299,14 @@ foreach my $st (@videoqueue) {
     last;
     }
     when ( /^joinfiles$/smx ) {
-      my $files = \$traco->getfromxml({file=>"$dir/vdrtranscode.xml",
+      my $files = \$traco->getfromxml({file=>"$dir/$tracoenv->{'traco_xml'}",
 					      field=>'files',
 					      debug=>$tracoenv->{'debug_flag'},
 					      });
 	if ( ( defined ${$files} ) and ( ${$files} ne q{} ) ) {
       $rc=\$traco->_joinfiles({dir=>$dir,files=>${$files},debug=>$tracoenv->{'debug_flag'},});
       if (${$rc} eq 'joindone') {
-	$traco->changexmlfile({file=>"$dir/vdrtranscode.xml",
+	$traco->changexmlfile({file=>"$dir/$tracoenv->{'traco_xml'}",
 					action=>'change',
 					field=>'status',
 					to=>'online',
@@ -317,7 +317,7 @@ foreach my $st (@videoqueue) {
       $rc=q{};
       undef $files;
       } else {
-	$traco->message ({msg=>"no field \<files\> found in vdrtranscode.xml or is field is empty in $dir",});
+	$traco->message ({msg=>"no field \<files\> found in $tracoenv->{'traco_xml'} or is field is empty in $dir",});
       }
       last;
     } # end when joinfiles
@@ -691,8 +691,8 @@ sub _myhelp {
 1;
 __DATA__
 
-vdrtranscode_server.pl
-$ vdrtranscode_server 
+tracosrv.pl
+$ tracosrv.pl 
   [--verbose] or -v - mutiple v increase the verboselevel
   [--help] or -h 
   [--forground ] or -f
