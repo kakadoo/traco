@@ -151,7 +151,7 @@ my $dir = \$args->{dir};
 my $vdrfiles = \$args->{vdrfiles};
 my $dbg = \$args->{debug};
 my $fps = \$args->{fps};
-my $duration = \$args->{duration}
+my $duration = \$args->{duration};
 my $totalframes ;
 my $xmlfile = "${$dir}/vdrtranscode.xml";
 
