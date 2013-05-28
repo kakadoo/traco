@@ -30,8 +30,8 @@ show preset profile : tracoadm.pl show profile
 
 
 specials {
-delete vdrtranscode.ts : tracoadm.pl delete vdtranscode.ts
-delete vdrtranscode.xml : tracoadm.pl delete vdtranscode.xml
+delete vdrtranscode.ts : tracoadm.pl delete vdrtanscode.ts
+delete vdrtranscode.xml : tracoadm.pl delete vdrtanscode.xml
 join .ts or .vdr files : tracoadm.pl status joinfiles
 cut .ts or .vdr files : tracoadm.pl status cutfiles
 }
