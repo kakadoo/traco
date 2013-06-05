@@ -580,6 +580,8 @@ $workfile =~ s/[&]/\\&/gmisx ;
 $workfile =~ s/[(]/\\(/gmisx ;
 $workfile =~ s/[)]/\\)/gmisx ;
 
+$workfile =~ s/[%]/\\%/gmisx ;
+
 my $runline = "nice -n ${$mynice} ${$handbrake} --scan --no-dvdnav";
 if ( ${$starttime} )  { $runline .= " --start-at duration:${$starttime}"; }
 $runline .= " -i $workfile -o /dev/null -t 0 2>&1";
