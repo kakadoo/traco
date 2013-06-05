@@ -595,6 +595,7 @@ my $newdir=$proccessvideodir;
 $newdir =~ s/[&]/\\&/gmisx ;
 $newdir =~ s/[(]/\\(/gmisx ;
 $newdir =~ s/[)]/\\)/gmisx ;
+$newdir =~ s/[%]/\\%/gmisx ;
 
 my $runline;
 if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
