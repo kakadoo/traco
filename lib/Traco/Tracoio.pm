@@ -15,7 +15,7 @@ use File::Glob ':glob';
 use Fcntl ':flock';
 use Config;
 use Encode;
-use constant {BUFFERSIZE => 32_768, ACHT => 8, DREIZWEI => 32,};
+use constant {BUFFERSIZE => 32_768, ACHT => 8, DREIZWEI => 32, DREI => 3};
 
 require Exporter;
 use vars qw($VERSION @ISA @EXPORT_OK);
@@ -237,7 +237,7 @@ my @filelist=\$self->_get_files_in_dir ({dir=>${$source_dir},});
 #}
 #my $vdrfile = "$fill${$fileno}";
 
-my $vdrfile = sprintf "%05d", ${$fileno};
+my $vdrfile = sprintf '%05d', ${$fileno};
 
 
 for my $f (@filelist) {
@@ -396,7 +396,7 @@ return ('joindone');
 
 sub writefile {
 my ($self,$args) = @_;
-my @CA = caller (1);
+my @CA = caller 1;
 my $file = \$args->{'file'};
 my $o = \$args->{'options'};
 my @content = @{$args->{'content'}};
@@ -407,7 +407,7 @@ if (${$o}) {
 open my $WRITE , $options , ${$file} or croak "can't open ${$file} for writefile $ERRNO";
     flock $WRITE, LOCK_EX or croak "can't lock ${$file} for writefile $ERRNO";
     foreach my $l (@content) {
-    	if ( $CA[3] !~ /writelog$/smx ) {
+    	if ( $CA[DREI] !~ /writelog$/smx ) {
       	print {$WRITE} "$l\n" or croak "can't write to ${$file} for writefile $ERRNO";
       } else {
         	print {$WRITE} $l or croak "can't write to ${$file} for writefile $ERRNO";
