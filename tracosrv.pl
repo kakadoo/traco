@@ -28,7 +28,9 @@ use feature qw/switch/;
 
 our $VERSION = '0.23';
 
-use constant HD => { 1920 => 1080, 1280 => 720, 720 => 480, };
+use constant HD => { 1920 => 1080, 1280 => 720, 720 => 480,};
+use constant { FUENF => 5 };
+
 # declarations
 my $tracoenv = {};
 
@@ -38,7 +40,7 @@ my $videostatus = {};
 $tracoenv->{'configfile'} = '/etc/vdr/traco.conf' ;
 $tracoenv->{'daemon_flag'} = '1';
 $tracoenv->{'debug_flag'} = '0';
-$tracoenv->{'interval'} = 5 ;
+$tracoenv->{'interval'} = FUENF ;
 $tracoenv->{'pidfile'} = '/var/run/vdr/tracosrv.pid';
 $tracoenv->{'setcpu'} = q{};
 $tracoenv->{'fpstype'} = 'vdr';
@@ -245,7 +247,7 @@ for my $v (@videolist) {
    }
  else {
  		my $vdrfiles = \$traco->chkvdrfiles({dir=>$videopath,vdrversion=>$tracoenv->{'vdrversion'}, });
- 		
+
     if ( ${$vdrfiles}->{info} ne 'missing' ) {
       my $createxmlrc = \$traco->createvdrtranscodexml({dir=>$videopath,
 							debug=>${$config}->{'debug_createvdrtranscodexml'},
@@ -334,7 +336,7 @@ foreach my $st (@videoqueue) {
 						   indexfile=>${$vdrfiles}->{'index'},
 				      	debug=>$tracoenv->{'debug_flag'},
 				      });
-	
+
 #     my $tracotsrc=\$traco->prepare_traco_ts({source=>$dir,debug=>$tracoenv->{'debug_flag'},
 #						vdrversion=>$tracoenv->{'vdrversion'},
 #						fpstype=>$tracoenv->{'fpstype'},
@@ -359,7 +361,6 @@ foreach my $st (@videoqueue) {
                                         debug=>$tracoenv->{'debug_flag'},
                                       });
       }
-      
       } else {
 			$traco->changexmlfile({
 				file=>"$dir/$tracoenv->{'traco_xml'}",
@@ -449,7 +450,7 @@ my $proccessvideodir = shift ;
 
 if ( not ( -e "$proccessvideodir/$tracoenv->{'traco_ts'}" ) ) {
   $traco->message ({msg=>"in $proccessvideodir ,no $tracoenv->{'traco_ts'} exist , stop _preproccess for transcodevideo , set status to offline",});
-  
+
   $traco->changexmlfile({file=>"$proccessvideodir/$tracoenv->{'traco_xml'}",
 				action=>'change',
 				field=>'status',
@@ -591,11 +592,12 @@ if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
 ## HandBrakeCLI -i /video/Wir_sind_Kaiser_-_Best_of/2010-10-26.21.55.15-0.rec/00001.ts  -o ./test3.mp4 -e x264 -O -b 500 -2 -T -x ref=2:mixed-refs:bframes=2:b-pyramid=1:
 ## weightb=1:analyse=all:8x8dct=1:subme=7:me=umh:merange=24:trellis=1:no-fast-pskip=1:no-dct-decimate=1:direct=auto -5 -B 128  --stop-at frame:3000 --strict-anamorphic
 
-my $newdir=$proccessvideodir;
-$newdir =~ s/[&]/\\&/gmisx ;
-$newdir =~ s/[(]/\\(/gmisx ;
-$newdir =~ s/[)]/\\)/gmisx ;
-$newdir =~ s/[%]/\\%/gmisx ;
+my $newdir = $traco->prepshellpath({file=>$proccessvideodir,debug=>$tracoenv->{'debug_flag'},});
+#my $newdir=$proccessvideodir;
+#$newdir =~ s/[&]/\\&/gmisx ;
+#$newdir =~ s/[(]/\\(/gmisx ;
+#$newdir =~ s/[)]/\\)/gmisx ;
+#$newdir =~ s/[%]/\\%/gmisx ;
 
 my $runline;
 if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
