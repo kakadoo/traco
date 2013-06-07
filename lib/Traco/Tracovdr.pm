@@ -42,7 +42,7 @@ my $vdr_marks = "${$dir}/marks";
 my $vdr_info = "${$dir}/info";
 my $vdr_index = "${$dir}/index" ;
 
-if ( ${$vdrversion} =~ /^1[.](?:3|4|5|6)$/smx ) {
+if ( ${$vdrversion} =~ /^1[.](?:[3456])$/smx ) {
 	$vdr_info="${$dir}/info.vdr";
 	$vdr_marks="${$dir}/marks.vdr";
 	$vdr_index="${$dir}index.vdr";
