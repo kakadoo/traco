@@ -68,6 +68,7 @@ use base qw(Exporter Traco::Tracoio
 						handbrakeanalyse_cas 
 						_parse_config_value
 						gettotalframes
+						prepshellpath
 						);
 
 $VERSION = '0.22';
@@ -157,7 +158,7 @@ my $xmlfile = "${$dir}/vdrtranscode.xml";
 
 # check marks and resolve start and end point
 # if marks not available use start / stop time from info
-     
+
       if ( ${$vdrfiles}->{marks} ne 'missing' ) {
 			my $vdrmarks = \$self->parsevdrmarks({dir=>${$dir},
 				    fps=>${$fps},
@@ -171,7 +172,7 @@ my $xmlfile = "${$dir}/vdrtranscode.xml";
 				    debug=>${$dbg},
 			});
 			$totalframes = ${$vdrinfo}->{duration} * ${$vdrinfo}->{frames};
-  		}	
+  		}
 
 $self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>$totalframes,debug=>${$dbg},});
 
@@ -231,9 +232,9 @@ my ($sec,$min,$hour,$mday,$mon,$jahr,$wday) = localtime ;
 my $year=NEUNZEHNNULLNULL+$jahr;
 my $mo = $mon+1 ;
 
-$min = sprintf "%02d" , $min;
-$hour = sprintf "%02d" , $hour;
-$sec = sprintf "%02d" , $sec;
+$min = sprintf '%02d' , $min;
+$hour = sprintf '%02d' , $hour;
+$sec = sprintf '%02d' , $sec;
 
 given ($tiformat) {
   when ( /^1$/smx ) {
@@ -406,7 +407,7 @@ if ( ${$profile}->{'setcpu'} ) {
 $runline .= " -i ${$dir}/vdrtranscode.ts";
 
 if ( ${$profile}->{'largefile'} ) {
-  $runline .= " --large-file";
+  $runline .= ' --large-file';
 }
 
 if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
@@ -456,7 +457,7 @@ if ( ${$hba}->{'audiotracks'} > 1 ) {
 	$runline .= " -a ${$hba}->{'audiotracks'}";
 }
 	$runline .= " -A ${$hba}->{'audioopts'}->{'lang'}";
-	$runline .= " -E ${$hba}->{'audioopts'}->{'audioencoder'}"; 
+	$runline .= " -E ${$hba}->{'audioopts'}->{'audioencoder'}";
 	$runline .= " -B ${$hba}->{'audioopts'}->{'audiobitrate'}";
 	$runline .= " -D ${$hba}->{'audioopts'}->{'audionormalizer'}";
 
@@ -518,7 +519,7 @@ given (${$audiotrack}) {
   when ( $_ =~ /^(?:all|ALL)$/smx ) {
 
     $self->message ({msg=>'[prepare_audio_tracks] use all audiotracks',v=>'vvv',debug=>${$dbg},});
-    
+
     my $audiotracks = ${$hbanalyse}->{'audiotracks'} -1;
     foreach my $i ( 0 .. $audiotracks ) {
     if (exists ${$hbanalyse}->{"audiotrack[$i]options"} ) {
@@ -558,6 +559,21 @@ if ( $hbopts->{'kbps'} ) { $hbopts->{'kbps'} =~ s/[,]$//smx ; }
 return ($hbopts);
 }
 
+sub prepshellpath {
+my ($self,$args) = @_;
+my $file = \$args->{'file'};
+my $dbg = \$args->{'debug'};
+
+${$file} =~ s/[&]/\\&/gmisx ;
+${$file} =~ s/[(]/\\(/gmisx ;
+${$file} =~ s/[)]/\\)/gmisx ;
+${$file} =~ s/[%]/\\%/gmisx ;
+${$file} =~ s/[']/\\'/gmisx ;
+${$file} =~ s/[`]/\\`/gmisx ;
+${$file} =~ s/[']/\\'/gmisx ;
+
+return ${$file};
+}
 sub handbrakeanalyse {
 my ($self,$args) = @_;
 my $file = \$args->{'file'};
@@ -575,12 +591,13 @@ my $aac_bitrate=\$args->{'aac_bitrate'};
 #my $returndb = {};
 my @tmpdb2;
 # prepare & in path
-my $workfile = ${$file} ;
-$workfile =~ s/[&]/\\&/gmisx ;
-$workfile =~ s/[(]/\\(/gmisx ;
-$workfile =~ s/[)]/\\)/gmisx ;
+my $workfile = $self->prepshellpath({file=>${$file},debug=>${$dbg} });
 
-$workfile =~ s/[%]/\\%/gmisx ;
+#my $workfile = ${$file} ;
+#$workfile =~ s/[&]/\\&/gmisx ;
+#$workfile =~ s/[(]/\\(/gmisx ;
+#$workfile =~ s/[)]/\\)/gmisx ;
+#$workfile =~ s/[%]/\\%/gmisx ;
 
 my $runline = "nice -n ${$mynice} ${$handbrake} --scan --no-dvdnav";
 if ( ${$starttime} )  { $runline .= " --start-at duration:${$starttime}"; }
@@ -665,7 +682,7 @@ while ($#tmpdb >= $z) {
       $tmpdb[$a] =~ s/^\d+[,]\s//smx ; # remove trailling  digit(s),
 
       my $audiodb = \$self->_prepareaudiooptions ({line=>$tmpdb[$a],kbps=>${$kbps},debug=>${$dbg},});
-      
+
       $returndb->{"audiotrack[$audiotracks]"} = $tmpdb[$a] || q{};
       $returndb->{"audiotrack[$audiotracks]options"} = ${$audiodb};
       $audiotracks++;
@@ -712,6 +729,7 @@ $returndb->{'bitrate'} = $bitrate;
 $returndb->{'frequenz'} = $frequenz;
 return ($returndb);
 }
+
 
 sub setcpuoptions {
 my ($self,$args) = @_;
@@ -902,7 +920,7 @@ my $debug = \$args->{'debug'};
 my $config = {};
 my $lines = \$self->readfile({file=>${$file},});
 
-if ( ${$lines}->{'returncode'} !~ /[_]done$/smx ) { 
+if ( ${$lines}->{'returncode'} !~ /[_]done$/smx ) {
   print {*STDOUT} "trouble to read configfile exit $PROGRAM_NAME\n" or croak $ERRNO ;
   exit 1;
 }
