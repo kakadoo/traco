@@ -214,6 +214,7 @@ push @writecontent,'<status>offline</status>';
 push @writecontent,'<vdrinfo>';
 if ( ${$vdrinfo}->{'aspect'} ) { push @writecontent,"<aspect>${$vdrinfo}->{'aspect'}</aspect>"; }
 if ( ${$vdrinfo}->{'title'} ) { push @writecontent,"<title>${$vdrinfo}->{'title'}</title>"; }
+if ( ${$vdrinfo}->{'episode'} ) { push @writecontent,"<episode>${$vdrinfo}->{'episode'}</episode>"; }
 if ( ${$vdrinfo}->{'HD'} ) { push @writecontent,"<hd>${$vdrinfo}->{'HD'}</hd>"; }
 if ( ${$vdrinfo}->{'frames'} ) { push @writecontent,"<frames>${$vdrinfo}->{'frames'}</frames>"; }
 if ( ${$vdrinfo}->{'starttime'} ) { push @writecontent ,"<starttime>${$vdrinfo}->{'starttime'}</starttime>"; }
