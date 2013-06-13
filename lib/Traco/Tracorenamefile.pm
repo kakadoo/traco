@@ -88,9 +88,11 @@ if ( $filename =~ /[%]c/smx ) { $filename =~ s/[%]c/$container/smx ; }
 if ( $filename =~ /[%]vx/smx ) { $filename =~ s/[%]vx/$x/smx ; }
 if ( $filename =~ /[%]vy/smx ) { $filename =~ s/[%]vy/$y/smx ; }
 
-if ( ( $filename =~ /[%]e/smx ) && ( ${$vdrinfo}->{'episode'} ) ) { 
+if ( ( $filename =~ /[%]e/smx ) && ( ${$vdrinfo}->{'episode'} ) ) {
 	my $episode = ${$vdrinfo}->{'episode'} ;
 	$filename =~ s/[%]e/$episode/smx ; 
+} elsif ( $filename =~ /[%]e/smx ) {
+	$filename =~ s/[%]e//smx 
 }
 
 $self->message({msg=>"_rename_and_store | $dir | build filename $filename",v=>'vvv',});
