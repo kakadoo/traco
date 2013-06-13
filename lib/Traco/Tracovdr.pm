@@ -163,9 +163,18 @@ foreach my $i ( @{ ${$content}->{'returndata'} } ) {
     when ( $_ =~ /^T\s/smx ) {
       my (undef,$title) = split /^[T]\s/smx ,$_;
       while ($title =~ /\s/smx ) {
-	$title =~ s/\s/_/smx ;
+			$title =~ s/\s/_/smx ;
       }
       $rcdb->{'title'} = $title;
+    }
+     when ( $_ =~ /^S\s/smx ) {
+      my (undef,$epi) = split /^[S]\s/smx ,$_;
+      while ($epi =~ /\s/smx ) {
+ 			$epi =~ s/\s/_/smx ;
+ 		}
+			$title =~ s/\s/_/smx ;
+      }
+      $rcdb->{'episode'} = $epi;
     }
     when ( $_ =~ /^X\s[1]\s[0](?:[1]|[5])\s/smx ) {
       $rcdb->{'aspect'} = '4:3';
