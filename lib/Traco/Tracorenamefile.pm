@@ -21,7 +21,7 @@ $VERSION = '0.01';
 # 0.01 inital version
 #
 # fileformat macros
-# %t titel
+# %t title
 # %d day 1-31
 # %m month 1-12
 # %y year 20xx ( should be )
@@ -69,6 +69,7 @@ my $title = ${$vdrinfo}->{'title'};
 my $container = ${$vdrinfo}->{'container'};
 my $res = ${$vdrinfo}->{'resolution'};
 my $destinationfile = q{};
+
 my $tida = \$self->_preparedtime({timeformat=>3,});
 my ($mday,$mo,$year,$hour,$min,$sec) = split /\s/smx , ${$tida};
 
@@ -86,6 +87,11 @@ if ( $filename =~ /[%]fps/smx ) { $filename =~ s/[%]fps/$fps/smx ; }
 if ( $filename =~ /[%]c/smx ) { $filename =~ s/[%]c/$container/smx ; }
 if ( $filename =~ /[%]vx/smx ) { $filename =~ s/[%]vx/$x/smx ; }
 if ( $filename =~ /[%]vy/smx ) { $filename =~ s/[%]vy/$y/smx ; }
+
+if ( ( $filename =~ /[%]e/smx ) && ( ${$vdrinfo}->{'episode'} ) ) { 
+	my $episode = ${$vdrinfo}->{'episode'} };
+	$filename =~ s/[%]e/$episode/smx ; 
+}
 
 $self->message({msg=>"_rename_and_store | $dir | build filename $filename",v=>'vvv',});
 
