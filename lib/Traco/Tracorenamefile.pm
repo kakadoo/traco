@@ -89,7 +89,7 @@ if ( $filename =~ /[%]vx/smx ) { $filename =~ s/[%]vx/$x/smx ; }
 if ( $filename =~ /[%]vy/smx ) { $filename =~ s/[%]vy/$y/smx ; }
 
 if ( ( $filename =~ /[%]e/smx ) && ( ${$vdrinfo}->{'episode'} ) ) { 
-	my $episode = ${$vdrinfo}->{'episode'} };
+	my $episode = ${$vdrinfo}->{'episode'} ;
 	$filename =~ s/[%]e/$episode/smx ; 
 }
 
