@@ -48,6 +48,8 @@ use base qw(Exporter Traco::Tracoio
 							Traco::Tracorenamefile
 							Traco::Tracovdr
 							);
+#						parseconfig 
+#						_parse_config_value
 
 @EXPORT_OK = qw(prepare_traco_ts 
 						recalculate_video_bitrate 
@@ -58,7 +60,6 @@ use base qw(Exporter Traco::Tracoio
 						writelockfile 
 						readlockfile 
 						_runexternal 
-						parseconfig 
 						preparepath 
 						message 
 						setcpuoptions 
@@ -66,12 +67,11 @@ use base qw(Exporter Traco::Tracoio
 						prepare_crop 
 						buildrunline _
 						handbrakeanalyse_cas 
-						_parse_config_value
 						gettotalframes
 						prepshellpath
 						);
 
-$VERSION = '0.22';
+$VERSION = '0.23';
 
 #
 # 0.01 inital version
@@ -872,6 +872,13 @@ my $dbg = \$args->{'debug'}  ;
 my $l=\$args->{'line'} ;
 my $wlog=\$args->{'writelog'};
 
+
+if ( $args->{jobout} )  {
+	my $time_start = \$self->_preparedtime({timeformat=>0,});
+	$self->message({msg=>"JOB START -- ${$time_start}",}) ;
+}
+  
+  
 my $line = ${$l} ;
 $self->message({msg=>"[_runexternal]run | $line",v=>'vvv',debug=>${$dbg},});
 
@@ -910,48 +917,53 @@ my $childpid = open3(\*CHLD_IN,\*CHLD_OUT, \*CHLD_ERR, $line);
 
   close CHLD_OUT or croak $ERRNO;
   close CHLD_ERR or croak $ERRNO;
+
+if ( $args->{jobout} )  {
+	my $time_end = \$self->_preparedtime({timeformat=>0,});
+	$self->message({msg=>"JOB STOP -- ${$time_end}",}) ;
+}  
+
 return ($returnline);
 } # end sub _runexternal
 
-sub parseconfig {
-my ($self,$args) = @_;
-my $file = \$args->{'config'};
-my $debug = \$args->{'debug'};
-my $config = {};
-my $lines = \$self->readfile({file=>${$file},});
-
-if ( ${$lines}->{'returncode'} !~ /[_]done$/smx ) {
-  print {*STDOUT} "trouble to read configfile exit $PROGRAM_NAME\n" or croak $ERRNO ;
-  exit 1;
-}
-
-  foreach (@{ ${$lines}->{'returndata'} }) {
-    s/#.*//smx;     # no comments
-    s/^\s+//smx;    # no leading white
-    s/\s+$//smx;    # no trailing white
-    if ( $_ =~ /^\#/smx ) { next; } ;
-    if ( !length ) { next; } ;
-    my ($key,$tmp_value) = split /\s*=(?:\s*|\t*)/smx ,$_,2;
-    my $value = \$self->_parse_config_value({value=>$tmp_value,debug=>${$debug},});
-    undef $tmp_value;
-    if ( ${$debug} ) { print {*STDOUT} "[DEBUG] _parseconfig | $_\n" or croak $ERRNO; }
-    $config->{$key} = ${$value};
-  }
-  undef $lines;
-return $config;
-}
-sub _parse_config_value {
-my ($self,$args) = @_;
-my $value = \$args->{'value'};
-my $debug = \$args->{'debug'};
-my $rc = ${$value};
-if ( ${$debug} ) { print {*STDOUT} "[DEBUG] _parse_config_value | value = ${$value}\n" or croak $ERRNO; }
-
-if ( ${$value} =~ /^(?:no|NO|[0]|false|false)$/smx ) { $rc = undef; };
-#if ( ${$value} =~ /^(?:yes|YES|[1]|true|TRUE)$/smx ) { $rc = ${$value} };
-
-return ($rc);
-}
+#sub parseconfig {
+#my ($self,$args) = @_;
+#my $file = \$args->{'config'};
+#my $debug = \$args->{'debug'};
+#my $config = {};
+#my $lines = \$self->readfile({file=>${$file},});
+#
+#if ( ${$lines}->{'returncode'} !~ /[_]done$/smx ) {
+#  print {*STDOUT} "trouble to read configfile exit $PROGRAM_NAME\n" or croak $ERRNO ;
+#  exit 1;
+#}
+#
+#  foreach (@{ ${$lines}->{'returndata'} }) {
+#    s/#.*//smx;     # no comments
+#   s/^\s+//smx;    # no leading white
+#    s/\s+$//smx;    # no trailing white
+#    if ( $_ =~ /^\#/smx ) { next; } ;
+#    if ( !length ) { next; } ;
+#    my ($key,$tmp_value) = split /\s*=(?:\s*|\t*)/smx ,$_,2;
+#    my $value = \$self->_parse_config_value({value=>$tmp_value,debug=>${$debug},});
+#    undef $tmp_value;
+#    if ( ${$debug} ) { print {*STDOUT} "[DEBUG] _parseconfig | $_\n" or croak $ERRNO; }
+#    $config->{$key} = ${$value};
+#  }
+#  undef $lines;
+#return $config;
+#}
+#sub _parse_config_value {
+#my ($self,$args) = @_;
+#my $value = \$args->{'value'};
+#my $debug = \$args->{'debug'};
+#my $rc = ${$value};
+#if ( ${$debug} ) { print {*STDOUT} "[DEBUG] _parse_config_value | value = ${$value}\n" or croak $ERRNO; }
+#
+#if ( ${$value} =~ /^(?:no|NO|[0]|false|false)$/smx ) { $rc = undef; };
+#
+#return ($rc);
+#}
 
 sub preparepath {
 my ($self,$args) = @_;
