@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 # $Revision: 00001 $
-# $Source: /home/glaess/perl/vdr/usr/local/bin/tracosrv.pl $
+# $Source: /home/glaess/perl/traco/tracosrv.pl $
 # $Id: Holger Glaess $
 # $HeadURL www.glaessixs.de/projekte/vdrtranscode $ 
 # $Date 29/03/2011 $
@@ -33,9 +33,6 @@ use constant { FUENF => 5 };
 
 # declarations
 my $tracoenv = {};
-
-
-
 my $videostatus = {};
 $tracoenv->{'configfile'} = '/etc/vdr/traco.conf' ;
 $tracoenv->{'daemon_flag'} = '1';
@@ -47,7 +44,6 @@ $tracoenv->{'fpstype'} = 'vdr';
 $tracoenv->{'traco_ts'} = 'vdrtranscode.ts';
 $tracoenv->{'traco_xml'} = 'vdrtranscode.xml';
 $tracoenv->{'traco_lck'} = 'vdrtranscode.lck';
-
 # set default profile 
 $tracoenv->{'defaultprofile'} = 'SD';
 # nice default
@@ -515,22 +511,6 @@ my $totalframes = \$traco->gettotalframes({
  				vdrfiles=>${$vdrfiles},
  			});
 
-#      if ( ${$vdrfiles}->{marks} ne 'missing' ) {
-#			my $vdrmarks = \$traco->parsevdrmarks({dir=>$proccessvideodir,
-#				    fps=>${$hba}->{'fps'},
-#				    duration=>${$hba}->{'duration'},
-#				    debug=>$tracoenv->{'debug_flag'},
-#				    marksfile=>${$vdrfiles}->{marks},
-#				   });
-#  		$totalframes = ${$vdrmarks}->{'totalframes'};
-#		} else {
-#			my $vdrinfo = \$traco->parsevdrinfo({dir=>$proccessvideodir,
-#				    debug=>$tracoenv->{'debug_flag'},
-#			});
-#			$totalframes = ${$vdrinfo}->{duration} * ${$vdrinfo}->{frames};
-# 		}	
-#}
-
 
 if ( ( not ( ${$profile}->{'crop'} ) ) or ( ${$profile}->{'crop'} !~ /^auto$/smx ) ) {
   ${$profile}->{'crop'} = $traco->prepare_crop({crop=>${$hba}->{'autocrop'},});
@@ -593,11 +573,6 @@ if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
 ## weightb=1:analyse=all:8x8dct=1:subme=7:me=umh:merange=24:trellis=1:no-fast-pskip=1:no-dct-decimate=1:direct=auto -5 -B 128  --stop-at frame:3000 --strict-anamorphic
 
 my $newdir = $traco->prepshellpath({file=>$proccessvideodir,debug=>$tracoenv->{'debug_flag'},});
-#my $newdir=$proccessvideodir;
-#$newdir =~ s/[&]/\\&/gmisx ;
-#$newdir =~ s/[(]/\\(/gmisx ;
-#$newdir =~ s/[)]/\\)/gmisx ;
-#$newdir =~ s/[%]/\\%/gmisx ;
 
 my $runline;
 if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
@@ -621,15 +596,23 @@ if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
 }
 
 
-my $hbrc;
+#my $hbrc;
+
 if ( ${$config}->{'writelog'} ) {
- $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},writelog=>"$proccessvideodir/handbrake.log",});
+ $self->_runexternal({line=>${$runline},
+ 								debug=>$tracoenv->{'debug_flag'},
+ 								writelog=>"$proccessvideodir/handbrake.log",
+ 								jobout=>'true'});
+
+# $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},writelog=>"$proccessvideodir/handbrake.log",});
 } else {
- $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},});
+ $self->_runexternal({ line=>${$runline},
+ 								debug=>$tracoenv->{'debug_flag'},
+ 								jobout=>'true',});
+ 
+# $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},});
 }
-#if (${$hbrc} eq 'hbdone') {
-#  _postproccess ({dir=>$proccessvideodir,debug=>${$config}->{'debug_postproccess'},});
-#}
+
 $runline = undef;
 $profile = undef;
 $hba = undef;
