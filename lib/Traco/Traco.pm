@@ -570,7 +570,6 @@ ${$file} =~ s/[)]/\\)/gmisx ;
 ${$file} =~ s/[%]/\\%/gmisx ;
 ${$file} =~ s/[']/\\'/gmisx ;
 ${$file} =~ s/[`]/\\`/gmisx ;
-${$file} =~ s/[']/\\'/gmisx ;
 
 return ${$file};
 }
