@@ -1,3 +1,6 @@
-*Vdr version in config um auch schnitte auf remote rechnern machen zu koennen
-*wenn im namen ein / ist wir die datei nicht umbenannt ( renameaftertranscode ) -> workaraound titel in der vdrtranscode.xml aendern,
+*add proccessing bar ( start in beta 10.2013 )
+*Vdr version in config um auch schnitte auf remote rechnern machen zu koennen ( done )
+*wenn im namen ein / ist wir die datei nicht umbenannt ( renameaftertranscode ) -> workaraound titel in der vdrtranscode.xml aendern ( fixed 6.10.2013 )
+*new central Config.pm ( start beta 10.2013 ) config file are only for override default settings.
+
 
