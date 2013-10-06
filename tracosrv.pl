@@ -20,8 +20,9 @@ use Proc::Daemon 0.11;
 use File::Basename ;
 #use Cwd;
 use lib 'lib/';
-use Traco::Traco 0.20;
-#use Data::Dumper ;
+use Traco::Traco 0.24;
+use Traco::Config ;
+use Data::Dumper ;
 
 # now feature from 5.10
 use feature qw/switch/;
@@ -32,22 +33,23 @@ use constant HD => { 1920 => 1080, 1280 => 720, 720 => 480,};
 use constant { FUENF => 5 };
 
 # declarations
-my $tracoenv = {};
+my $tracoenv = Traco::Config->new();
+
 my $videostatus = {};
-$tracoenv->{'configfile'} = '/etc/vdr/traco.conf' ;
-$tracoenv->{'daemon_flag'} = '1';
-$tracoenv->{'debug_flag'} = '0';
-$tracoenv->{'interval'} = FUENF ;
-$tracoenv->{'pidfile'} = '/var/run/vdr/tracosrv.pid';
-$tracoenv->{'setcpu'} = q{};
-$tracoenv->{'fpstype'} = 'vdr';
-$tracoenv->{'traco_ts'} = 'vdrtranscode.ts';
-$tracoenv->{'traco_xml'} = 'vdrtranscode.xml';
-$tracoenv->{'traco_lck'} = 'vdrtranscode.lck';
+#$tracoenv->{'configfile'} = '/etc/vdr/traco.conf' ;
+#$tracoenv->{'daemon_flag'} = '1';
+#$tracoenv->{'debug_flag'} = '0';
+#$tracoenv->{'interval'} = FUENF ;
+#$tracoenv->{'pidfile'} = '/var/run/vdr/tracosrv.pid';
+#$tracoenv->{'setcpu'} = q{};
+#$tracoenv->{'fpstype'} = 'vdr';
+#$tracoenv->{'traco_ts'} = 'vdrtranscode.ts';
+#$tracoenv->{'traco_xml'} = 'vdrtranscode.xml';
+#$tracoenv->{'traco_lck'} = 'vdrtranscode.lck';
 # set default profile 
-$tracoenv->{'defaultprofile'} = 'SD';
+#$tracoenv->{'defaultprofile'} = 'SD';
 # nice default
-$tracoenv->{'nice'} = '20';
+#$tracoenv->{'nice'} = '20';
 my $z=0;
 #my $homedir = getcwd();
 
@@ -75,6 +77,7 @@ while ( defined $ARGV[$z] ) {
     when ( /^(?:[-][-]config|[-]c)$/smx ) {
       my $f=$z+1;
       $tracoenv->{'configfile'} = $ARGV[$f] ;
+		$tracoenv->parseconfig ({ config => $ARGV[$f] }) ;
       $z++;
     }
   } # end given 
@@ -82,11 +85,14 @@ while ( defined $ARGV[$z] ) {
 } # end while ARGV
 #
 
+
 # init Vdrtranscode(traco) object
 my $traco=Traco::Traco->new({debug=>$tracoenv->{'debug_flag'},});
-my $config = \$traco->parseconfig({config=>$tracoenv->{'configfile'},debug=>$tracoenv->{'debug_flag'},});
-# setup facilitiy / priority for syslog
-$traco->setup({facility=>${$config}->{'facility'},priority=>${$config}->{'priority'},});
+
+#my $config = \$traco->parseconfig({config=>$tracoenv->{'configfile'},debug=>$tracoenv->{'debug_flag'},});
+
+# setup facility / priority for syslog
+$traco->setup({facility=>$tracoenv->{'facility'},priority=>$tracoenv->{'priority'},});
 
 # wenn daemon dann ausgabe nach syslog sonst STDOUT
 $traco->setup({daemon=>$tracoenv->{'daemon_flag'},verboselevel=>$tracoenv->{'verbose_flag'},});
@@ -94,17 +100,17 @@ $traco->message ({msg=>"use configfile $tracoenv->{'configfile'}",v=>'v',});
 
 
 # override default profile from config
-if (${$config}->{'defaultprofile'} ) {
-  $tracoenv->{'defaultprofile'} = ${$config}->{'defaultprofile'};
-}
+#if ($tracoenv->{'defaultprofile'} ) {
+#  $tracoenv->{'defaultprofile'} = $tracoenv->{'defaultprofile'};
+#}
 # override default fpstype from config
-if (${$config}->{'fpstype'} ) {
-  $tracoenv->{'fpstype'} = ${$config}->{'fpstype'};
-}
+#if ($tracoenv->{'fpstype'} ) {
+#  $tracoenv->{'fpstype'} = $tracoenv->{'fpstype'};
+#}
 
 # get vdr user 
-if ( ${$config}->{'vdr_user'} ) {
-  $tracoenv->{'vdruid'} = getpwnam ${$config}->{'vdr_user'};
+if ( $tracoenv->{'vdr_user'} ) {
+  $tracoenv->{'vdruid'} = getpwnam $tracoenv->{'vdr_user'};
 } else {
   $traco->message({msg=>'missing vdr_user in config',}) ;
   exit 1;
@@ -113,28 +119,28 @@ if ( ${$config}->{'vdr_user'} ) {
 # get path from config
 # check if directorys are symbolic links and replace it with followd link
 #
-my $indirrc = \$traco->preparepath({path=>${$config}->{'Indir'},});
-my $outdirrc = \$traco->preparepath({path=>${$config}->{'Outdir'},});
+my $indirrc = \$traco->preparepath({path=>$tracoenv->{'Indir'},});
+my $outdirrc = \$traco->preparepath({path=>$tracoenv->{'Outdir'},});
 
 if ( ${$indirrc} ) {
   $tracoenv->{'indir'} = ${$indirrc};
 } else {
-  $traco->message({msg=>"${$config}->{'Indir'} not found or is not a Directory, check please...",}) ;
+  $traco->message({msg=>"$tracoenv->{'Indir'} not found or is not a Directory, check please...",}) ;
   _leave () ;
 }
 if ( ${$outdirrc} ) {
-  $tracoenv->{'outdir'} = ${$outdirrc};
+  $tracoenv->{'Outdir'} = ${$outdirrc};
 } else {
-  $traco->message({msg=>"${$config}->{'Outdir'} not found or is not a Directory, check please...",}) ;
+  $traco->message({msg=>"$tracoenv->{'Outdir'} not found or is not a Directory, check please...",}) ;
   _leave () ;
 }
 
 $traco->message ({msg=>"debug $tracoenv->{'debug_flag'}",v=>'vvv'},);
 
 # overwrite nice default 
-if ( ${$config}->{'nice_level'} ) {
-  $tracoenv->{'nice'} = ${$config}->{'nice_level'};
-}
+#if ( $tracoenv->{'nice_level'} ) {
+#  $tracoenv->{'nice'} = $tracoenv->{'nice_level'};
+#}
 $traco->message ({msg=>"nice $tracoenv->{'nice'}",v=>'vvv',});
 
 # find binarys 
@@ -154,16 +160,16 @@ if ( ${$runexternal}->{'exitcode'} != 0 ) {
 # end find binarys ##################
 
 # vdr version 
-$tracoenv->{'vdrversion'} = '1.7';
-if ( defined ${$config}->{'vdrversion'} ) {
-	$tracoenv->{'vdrversion'} = ${$config}->{'vdrversion'};
-}
+#$tracoenv->{'vdrversion'} = '1.7';
+#if ( defined $tracoenv->{'vdrversion'} ) {
+#	$tracoenv->{'vdrversion'} = $tracoenv->{'vdrversion'};
+#}
 
 $traco->message({msg=>"vdr version $tracoenv->{'vdrversion'}",v=>'v',}) ;
 
 
-if ( ${$config}->{'setcpu'} ) {
-  my $setcpu = \$traco->setcpuoptions({config=>${$config}->{'setcpu'},debug=>${$config}->{'debug_setcpuoptions'},maxcpu=>${$config}->{'maxcpu'},});
+if ( $tracoenv->{'setcpu'} ) {
+  my $setcpu = \$traco->setcpuoptions({config=>$tracoenv->{'setcpu'},debug=>$tracoenv->{'debug_setcpuoptions'},maxcpu=>$tracoenv->{'maxcpu'},});
   $tracoenv->{'setcpu'} = ${$setcpu};
   $traco->message ({msg=>"handbrake use as cpu option $tracoenv->{'setcpu'}",v=>'v',});
 }
@@ -173,9 +179,11 @@ if ( $tracoenv->{'daemon_flag'} == 1) {
   is_running ();
   $daemon = Proc::Daemon->new ( pid_file => $tracoenv->{'pidfile'} );
   $mainpid = $daemon->Init ({ work_dir => $tracoenv->{'indir'} });
-  if ( not ( $mainpid  ) ) {
+  	if ( $tracoenv->{'vdruid'} ) {
     $EUID = $tracoenv->{'vdruid'};
     $UID = $tracoenv->{'vdruid'};
+   }
+  if ( not ( $mainpid  ) ) {
     $traco->message ({msg=>"fork to the background pid $PID with EUID = $EUID",});
     while (1) {
       runmain ();
@@ -184,8 +192,8 @@ if ( $tracoenv->{'daemon_flag'} == 1) {
   }
 } else {
   $traco->message ({msg=>'no fork to the background',});
-  $EUID = $tracoenv->{'vdruid'};
-  $UID = $tracoenv->{'vdruid'};
+  #$EUID = $tracoenv->{'vdruid'};
+  #$UID = $tracoenv->{'vdruid'};
     while (1) {
       runmain ();
       sleep $tracoenv->{'interval'};
@@ -214,7 +222,7 @@ local $SIG{CHLD} = 'IGNORE' ;
 # reset on every new main loop
 my @videolist = \$traco->getfilelist({dir=>$tracoenv->{'indir'},
 					      skiplinks=>'true',
-					      debug=>${$config}->{'debug_getfilelist'},
+					      debug=>$tracoenv->{'debug_getfilelist'},
 					      });
 #
 
@@ -245,9 +253,11 @@ for my $v (@videolist) {
  		my $vdrfiles = \$traco->chkvdrfiles({dir=>$videopath,vdrversion=>$tracoenv->{'vdrversion'}, });
 
     if ( ${$vdrfiles}->{info} ne 'missing' ) {
-      my $createxmlrc = \$traco->createvdrtranscodexml({dir=>$videopath,
-							debug=>${$config}->{'debug_createvdrtranscodexml'},
+      my $createxmlrc = \$traco->createxml({dir=>$videopath, 
+							debug=>$tracoenv->{'debug_createvdrtranscodexml'},
 							profile=>$tracoenv->{'defaultprofile'},
+							xml=>$tracoenv->{'traco_xml'},
+							ts=>$tracoenv->{'traco_ts'},
 							});
       $traco->message ({msg=>${$createxmlrc},v=>'vvv',});
       next ;
@@ -282,10 +292,14 @@ foreach my $st (@videoqueue) {
     # job have multiple recording files and vdr ( vdrtranscodeadm ) prepare the job
     when ( /^renameaftertranscode$/smx) {
       my $renamerc = \$traco->rename_and_store({dir=>$dir,
-						filenameformat=>${$config}->{'filenameformat'},
-						destination=>$tracoenv->{'outdir'},
+						filenameformat=>$tracoenv->{'filenameformat'},
+						destination=>$tracoenv->{'Outdir'},
 						debug=>$tracoenv->{'debug_flag'},
+						xml=>$tracoenv->{'traco_xml'},
+						tmpfile=>$tracoenv->{'traco_tmp'},
 						});
+#						store=>'copy',
+#						print Dumper ${$renamerc};
       if (${$renamerc} eq '_rename_and_store_done') {
        $traco->changexmlfile({file=>"$dir/$tracoenv->{'traco_xml'}",
 				     action=>'change',
@@ -324,6 +338,7 @@ foreach my $st (@videoqueue) {
       if ( ${$vdrfiles}->{marks} ne 'missing' ) {
             my $tracotsrc=\$traco->combine_ts ({source=>$dir,
 					      target=>"$dir/$tracoenv->{traco_ts}",
+					      xml=>"$dir/$tracoenv->{traco_xml}",
 							vdrversion=>$tracoenv->{'vdrversion'},
 							fpstype=>$tracoenv->{'fpstype'},
 							handbrake=>$tracoenv->{'hb_bin'},
@@ -373,6 +388,7 @@ foreach my $st (@videoqueue) {
       if ( ${$vdrfiles}->{marks} ne 'missing' ) {
       my $cutrc=\$traco->combine_ts ({source=>$dir,
 					      target=>"$dir/$tracoenv->{'traco_ts'}",
+					      xml=>"$dir/$tracoenv->{'traco_xml'}",
 					      debug=>$tracoenv->{'debug_flag'},
 					      vdrversion=>$tracoenv->{'vdrversion'},
 					      fpstype=>$tracoenv->{'fpstype'},
@@ -419,7 +435,7 @@ foreach my $st (@videoqueue) {
 	}
       }
       waitpid $transcodepid,0;
-      _postproccess ({dir=>$dir,debug=>${$config}->{'debug_postproccess'},});
+      _postproccess ({dir=>$dir,debug=>$tracoenv->{'debug_postproccess'},});
       last;
     }
     when ( /^ready$/smx && $tracoenv->{'daemon_flag'} == 0 ) {
@@ -431,7 +447,7 @@ foreach my $st (@videoqueue) {
 	$traco->message ({msg=>"return from _transcodevideo $dir = ${$trrc}",});
       }
       if (${$trrc} =~ /[_]done$/smx ) {
-	_postproccess ({dir=>$dir,debug=>${$config}->{'debug_postproccess'},});
+	_postproccess ({dir=>$dir,debug=>$tracoenv->{'debug_postproccess'},});
       }
       last;
     }
@@ -462,7 +478,7 @@ $traco->changexmlfile({file=>"$proccessvideodir/$tracoenv->{'traco_xml'}",
 				debug=>$tracoenv->{'debug_flag'},
 				});
 
-my $lockfilerc = \$traco->writelockfile({dir=>$proccessvideodir,});
+my $lockfilerc = \$traco->writelockfile({dir=>$proccessvideodir,lck=>$tracoenv->{'traco_lck'},});
 $traco->message ({msg=>"write lockfile ${$lockfilerc}",});
 return ('_preproccess_done');
 }
@@ -476,7 +492,7 @@ $traco->message ({msg=>'read and prepare profile',}) ;
 my $profile = \$traco->prepareprofile ({
 	hb_bin=>$tracoenv->{'hb_bin'},
 	nice=>$tracoenv->{'nice'},
-	config=>${$config},
+	config=>$tracoenv,
 	file=>$proccessvideodir,
 	profile=>$tracoenv->{'defaultprofile'},
 	debug=>$tracoenv->{'debug_flag'},
@@ -486,6 +502,7 @@ ${$profile}->{'setcpu'} =  $tracoenv->{'setcpu'};
 $traco->message ({msg=>"analyse $proccessvideodir/$tracoenv->{'traco_ts'}",}) ;
 
 my $hba = \$traco->handbrakeanalyse({file=>"$proccessvideodir/$tracoenv->{'traco_ts'}",
+						xml=>"$proccessvideodir/$tracoenv->{'traco_xml'}",
 						nice=>$tracoenv->{'nice'},
 						handbrake=>$tracoenv->{'hb_bin'},
 						kbps=>'true',
@@ -509,6 +526,7 @@ my $totalframes = \$traco->gettotalframes({
  				fps=>${$hba}->{'fps'},
  				duration=>${$hba}->{'duration'},
  				vdrfiles=>${$vdrfiles},
+ 				xml=>"$proccessvideodir/$tracoenv->{'traco_xml'}"
  			});
 
 
@@ -582,37 +600,49 @@ if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
 				   hba=>${$hba},
 				   recalc_video_bitrate => ${$recalc_video_bitrate},
 				   target_mbyte_size => ${$target_mbyte_size},
-				   debug=>${$config}->{'debug_buildrunline'},
-			 	   useclassic=>${$config}->{'use_classic_profile'},
+			 	   tracoenv=>$tracoenv,
 				  });
+#				   debug=>$tracoenv->{'debug_buildrunline'},
+#			 	   useclassic=>$tracoenv->{'use_classic_profle'},
+
 } else {
   $runline=\$traco->buildrunline({
   					profile=>${$profile},
 				   dir=>$newdir,
 				   hba=>${$hba},
-				   debug=>${$config}->{'debug_buildrunline'},
-			 	   useclassic=>${$config}->{'use_classic_profile'},
+			 	   tracoenv=>$tracoenv,
 				  });
+#				   debug=>$tracoenv->{'debug_buildrunline'},
+#			 	   useclassic=>$tracoenv->{'use_classic_profile'},
+
 }
 
+my $time_start = \$traco->_preparedtime({timeformat=>0,});
+$traco->message({msg=>"JOB START -- ${$time_start}",}) ;
 
-#my $hbrc;
 
-if ( ${$config}->{'writelog'} ) {
- $self->_runexternal({line=>${$runline},
+
+if ( $tracoenv->{'writelog'} ) {
+ $traco->_runexternal({line=>${$runline},
  								debug=>$tracoenv->{'debug_flag'},
- 								writelog=>"$proccessvideodir/handbrake.log",
- 								jobout=>'true'});
+ 								starttime => ${$time_start} ,
+ 								videoname => $proccessvideodir,
+ 								svdrpsend_flags=>$tracoenv->{'svdrpsend_flags'},
+ 								writelog=>"$proccessvideodir/handbrake.log", });
 
 # $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},writelog=>"$proccessvideodir/handbrake.log",});
 } else {
- $self->_runexternal({ line=>${$runline},
- 								debug=>$tracoenv->{'debug_flag'},
- 								jobout=>'true',});
+ $traco->_runexternal({ line=>${$runline},
+ 								debug=>$tracoenv->{'debug_flag'},});
  
 # $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},});
 }
 
+	my $time_end = \$traco ->_preparedtime({timeformat=>0,});
+	$traco->message({msg=>"JOB STOP -- ${$time_end}",}) ;
+
+$time_start = undef;
+$time_end = undef;
 $runline = undef;
 $profile = undef;
 $hba = undef;
@@ -623,19 +653,19 @@ sub _postproccess {
 my $args = shift;
 my $postproccessdir = $args->{'dir'};
 my $dbg = \$args->{'debug'};
-my $returnline = '_postprocces_sdone';
+my $returnline = '_postproccess ddone';
 
-my $rcunlock = \$traco->removelockfile ({dir=>$postproccessdir,});
+my $rcunlock = \$traco->removelockfile ({dir=>$postproccessdir,lck=>$tracoenv->{'traco_lck'},});
 $traco->message ({msg=>"_postproccess|remove lck in $postproccessdir = ${$rcunlock}",v=>'v',});
 
 $returnline = ${$rcunlock};
 
 
-if ( ${$config}->{'executeafter'} ) {
+if ( $tracoenv->{'executeafter'} ) {
       my $execafterpid = $daemon->Fork();
       if ( $execafterpid == 0 ) {
 	my $rc = $traco->_runexternal({
-	  line=>"${$config}->{'executeafter'} $postproccessdir $tracoenv->{'outdir'}",
+	  line=>"$tracoenv->{'executeafter'} $postproccessdir $tracoenv->{'outdir'}",
 	  debug=>$tracoenv->{'debug_flag'},
 	 });
         $traco->message ({msg=>"executeafter | return from _runexternal = ${$rc}->{'exitcode'}",});
