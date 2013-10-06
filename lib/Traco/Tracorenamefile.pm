@@ -15,7 +15,7 @@ use base qw(Exporter);
 
 @EXPORT_OK = qw(rename_and_store);
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 #
 # 0.01 inital version
@@ -105,9 +105,11 @@ foreach my $f (@flist) {
     $sourcefile = ${$f};
   }
 }
-$self->message({msg=>"_rename_and_store | work with $sourcefile",v=>'vvv',});
+$self->message({msg=>"_rename_and_store | sourcefile $sourcefile",v=>'vvv',});
 
 $self->message({msg=>"_rename_and_store | copy $sourcefile to ${$dstdir}/$filename",v=>'v',});
+# a slash is not allowed in filename, we replace it with a dash
+$filename =~ s/\//\-/gmisx;
 
 my $z=1;
 while ( -e "${$dstdir}/$filename" ) {
