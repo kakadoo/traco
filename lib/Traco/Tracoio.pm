@@ -47,11 +47,16 @@ my $dir=\$args->{'dir'};
 my $returnline;
 my $hb=\$args->{'handbrake'};
 my $nice=\$args->{'nice'};
+my $xml = \$args->{'xml'};
+
+#my @CA = caller 1;
+#print Dumper $CA[3];
+#print Dumper $args;
 #######
      # um die richtige fps zahl zu haben fuer die berechnung
      given ( ${$fpstype} ) {
       when ( /^vdr$/smx ) {
-	my $vdrfps = \$self->getfromxml({file=>"${$dir}/vdrtranscode.xml",
+	my $vdrfps = \$self->getfromxml({file=>"${$dir}/${$xml}",
 					field=>'frames',
 					block=>'vdrinfo',
 					debug=>${dbg},
@@ -84,13 +89,14 @@ my $vdrv = \$args->{'vdrversion'};
 my $hb=\$args->{'handbrake'};
 my $nice=\$args->{'nice'};
 my $marksfile=\$args->{'marksfile'};
-my $xmlfile = "${$source_ts}/vdrtranscode.xml";
+my $xml = \$args->{'xml'};
+my $xmlfile = ${$xml};
 my $idxfile = \$args->{'indexfile'};
 
 if ( -e ${$target_ts} ) { return ("combine_ts: target_exist_in_${$target_ts}") };
 if ( not ( ${$vdrv} ) ) { return ('combine_ts: missing_vdr_version'); };
 
-my $fps=\$self->_getfps({fpstype=>${$fpstype},dir=>${$source_ts},debug=>${$dbg},handbrake=>${$hb},nice=>${$nice},});
+my $fps=\$self->_getfps({fpstype=>${$fpstype},dir=>${$source_ts},debug=>${$dbg},handbrake=>${$hb},nice=>${$nice},xml=>${$xml},});
 
 my $start = {};
 my $stop = {};
@@ -186,7 +192,7 @@ if ( $filea == $fileb ) {
 	$filecount++;
       }
       $self->message ({msg=>"call _joinfiles dir = $source_ts_dir files = $tojoinfiles" ,debug=>${$dbg},v=>'vvv',}) ;
-      my $joinrc = \$self->_joinfiles({dir=>$source_ts_dir,files=>$tojoinfiles,});
+      my $joinrc = \$self->_joinfiles({dir=>$source_ts_dir,files=>$tojoinfiles,destination=>${$target_ts}});
       $self->message ({msg=>"_joinfiles return = ${$joinrc}" ,debug=>${$dbg},v=>'vvv',}) ;
       ($wrkfile,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$fileb,});
       $rc = \$self->_cutfile ({sourcedir=>$source_ts_dir,
@@ -218,6 +224,8 @@ my @files ;
 foreach my $f (bsd_glob "${$dir}/$pattern") {
   push @files,$f;
 }
+
+
 return (@files);
 }
 
@@ -360,11 +368,10 @@ my $dbg = \$args->{'debug'};
 my $files = \$args->{'files'};
 my $destfile = \$args->{'destination'};
 
-my $destinationfile='vdrtranscode.ts';
+if ( ! $args->{'destination'} ) { return '_joinfiles missing destination'};
 
-if (${$destfile}) {
-  $destinationfile = ${$destfile};
-}
+my $destinationfile = ${$destfile};
+
 my $buffer;
 my $copied;
 my $fh_out;
@@ -421,7 +428,9 @@ return ('writedone');
 sub readfile {
 my ($self,$args) = @_;
 my $file = \$args->{'file'};
-
+#my @CA = caller 1;
+#print Dumper $CA[3];
+#print Dumper $args;
 my @content = ();
 my $rc = { returncode=>'readfile_done' };
 
