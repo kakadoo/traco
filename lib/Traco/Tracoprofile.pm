@@ -100,7 +100,7 @@ TRANSFORMER => { shortname=>'TF101', name=>'Asus EeePC Transformer Profile ( And
 		  quality=>'rf:20',
 		  codecopts=>'-x mixed-refs=0:weightb=0:subq=7:ref=4:deblock=-2,-1:trellis=1:analyse=some',},
 
-SDMKV => { shortname=>'SD-MKV',name=>'SD (480p) Profile with HQ Bitrate MKV Container',
+SDMKV => { shortname=>'SDMKV',name=>'SD (480p) Profile with HQ Bitrate MKV Container',
 	resolution=>'480p',
 	container=>'mkv',
 	pixel => '852',
@@ -161,17 +161,17 @@ my $setcpu = \$args->{'setcpu'};
 my $config = \$args->{'config'};
 my $dbg=\$args->{'debug'};
 $self->message ({msg=>'read and prepare profile for transcode process',v=>'vvv',});
+
 my $default = \$self->getprofile({profile=>${$defaultprofile},});
+
 
 # get profile defaults
 my $profiledefaults = \$self->getprofile({profile=>'default',});
 
-my $xmlprofile = \$self->getfromxml({file=>"${$proccessvideodir}/vdrtranscode.xml",
+my $xmlprofile = \$self->getfromxml({file=>"${$proccessvideodir}/${$config}->{'traco_xml'}",
 				field=>'ALL',
 				debug=>${$dbg},
 				});
-
-
 
 my $returndb = {
   nice=>${$nice},
@@ -191,7 +191,6 @@ my $returndb = {
   AAC_Bitrate => ${$config}->{'AAC_Bitrate'},
   DRC => ${$config}->{'DRC'},
 };
-
 
 #<destination>
 #<container>mp4</container>
