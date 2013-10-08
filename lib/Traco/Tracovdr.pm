@@ -9,7 +9,11 @@ use English '-no_match_vars';
 use Carp;
 
 use feature qw/switch/;
-use Data::Dumper;
+#use Data::Dumper;
+use IO::Socket::INET;
+
+#use lib 'lib/';
+#use Traco::Svdrpsend ;
 
 use constant {DREISECHSNULLNULL => 3600,SECHSNULL => 60,};
 
@@ -17,9 +21,9 @@ require Exporter;
 use vars qw($VERSION @ISA @EXPORT_OK);
 use base qw(Exporter);
 
-@EXPORT_OK = qw(chkvdrversion parsevdrmarks parsevdrinfo chkvdrfiles);
+@EXPORT_OK = qw(chkvdrversion parsevdrmarks parsevdrinfo chkvdrfiles bgprocess);
 
-$VERSION = '0.22';
+$VERSION = '0.24';
 
 
 sub new {
@@ -29,6 +33,84 @@ sub new {
 	bless $self,$class;
 	return $self;
 } # end sub new
+
+# process bar
+
+
+sub bgprocess {
+my ( $self,$args ) = @_;
+my $line = \$args->{'line'};
+my $starttime = \$args->{'starttime'};
+my $videoname = \$args->{'videoname'};
+my $svdrpsend_flags = \$args->{'svdrpsend_flags'};
+
+#print Dumper $args;
+
+my ($dsthost,$dstport,$timeout)  = ${$svdrpsend_flags} =~ m/^[-][d]\s(\d+\.\d+\.\d+\.\d+)\s[-][p]\s(\d+)\s[-][t]\s(\d+)$/smx ;
+my $svdrpsend = \&_svdrpsend;
+
+
+#Encoding: task 2 of 2, 18.56 % (24.64 fps, avg 31.18 fps, ETA 01h05m29s)
+#				task 1 of 2, 15.05 % (44.52 fps, avg 57.12 fps, ETA 00h33m57s)
+my ( $task,$progress,$st );
+
+if (${$line} =~ /^Encoding\:/smx ) {
+	( $task,$progress ) = ${$line} =~ m/^Encoding\:\s(.*)\,\s(\d*.\d*)\s/smx ;
+	$progress = sprintf ('%.0f',$progress); 
+#	print "[bgprocess]_svdrpsend plug bgprocess process traco ${$starttime} $progress $task ${$videoname} -> $dsthost , $dstport , $timeout\n";
+	$st = $svdrpsend->({host=>$dsthost,port=>$dstport,timeout=>$timeout,line=>"plug bgprocess process traco ${$starttime} $progress $task ${$videoname}"});
+} else {
+	$st = $svdrpsend->({host=>$dsthost,port=>$dstport,timeout=>$timeout,line=>"plug bgprocess process traco ${$starttime} 101 task 2 of 2 ${$videoname}"});
+}
+
+
+return $st;
+}
+
+sub _svdrpsend {
+my $args = shift;
+my $line = \$args->{'line'};
+my $host = \$args->{'host'};
+my $port = \$args->{'port'};
+my $timeout = \$args->{'timeout'};
+my $ti = ${$timeout} || '10';
+my $response ;
+
+#print Dumper $args;
+
+my $tcpsocket = new IO::Socket::INET (
+                                  PeerAddr => ${$host},
+                                  PeerPort => ${$port},
+                                  Proto => 'tcp',
+                                  Timeout => $ti,
+                                  Blocking => '1',
+                                 ) or croak "[_svdrpsend]Could not create socket: $ERRNO\n" ;
+
+#print <$tcpsocket> . "\n";
+
+if ( <$tcpsocket> =~ /^220/smx ) {
+#	print "Connect to VDR ${$host} Successful\n";
+	print $tcpsocket "${$line}\n" ;
+	$response = <$tcpsocket>;
+}
+
+#print "[_svdrpsend] $response\n";
+	
+if ( $response  =~ /OK/smx ) {
+	print $tcpsocket "quit\n" ;
+	close $tcpsocket or croak "[_svdrpsend] error $ERRNO\n";
+#	print "verbindung sollte nun geschlossen sein\n";
+} else {
+	print '[svdrpsend]' . <$tcpsocket> . "\n";
+	print $tcpsocket "quit\n" ;
+	close $tcpsocket or croak "[_svdrpsend] error $ERRNO\n";
+#	print "verbindung ,mit fehler, sollte nun geschlossen sein\n";
+	return '_svdrpsend_error';
+}
+undef $response;
+return '_svdrpsend_done';
+}
+
 
 # check if exists marks and info file 
 # 
