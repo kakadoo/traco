@@ -22,7 +22,7 @@ use File::Basename ;
 use lib 'lib/';
 use Traco::Traco 0.24;
 use Traco::Config ;
-use Data::Dumper ;
+#use Data::Dumper ;
 
 # now feature from 5.10
 use feature qw/switch/;
@@ -338,7 +338,7 @@ foreach my $st (@videoqueue) {
       if ( ${$vdrfiles}->{marks} ne 'missing' ) {
             my $tracotsrc=\$traco->combine_ts ({source=>$dir,
 					      target=>"$dir/$tracoenv->{traco_ts}",
-					      xml=>"$dir/$tracoenv->{traco_xml}",
+					      xml=>$tracoenv->{traco_xml},
 							vdrversion=>$tracoenv->{'vdrversion'},
 							fpstype=>$tracoenv->{'fpstype'},
 							handbrake=>$tracoenv->{'hb_bin'},
@@ -388,7 +388,7 @@ foreach my $st (@videoqueue) {
       if ( ${$vdrfiles}->{marks} ne 'missing' ) {
       my $cutrc=\$traco->combine_ts ({source=>$dir,
 					      target=>"$dir/$tracoenv->{'traco_ts'}",
-					      xml=>"$dir/$tracoenv->{'traco_xml'}",
+					      xml=>$tracoenv->{'traco_xml'},
 					      debug=>$tracoenv->{'debug_flag'},
 					      vdrversion=>$tracoenv->{'vdrversion'},
 					      fpstype=>$tracoenv->{'fpstype'},
@@ -517,8 +517,10 @@ my $hba = \$traco->handbrakeanalyse({file=>"$proccessvideodir/$tracoenv->{'traco
 
 
 #if ( not ( $totalframes ) ) {
-# check marks and resolve start and end point
-# if marks not available use start / stop time from info
+#check marks and resolve start and end point
+#if marks not available use start / stop time from info
+
+
 my $vdrfiles = \$traco->chkvdrfiles({dir=>$proccessvideodir,vdrversion=>$tracoenv->{'vdrversion'},});
 my $totalframes = \$traco->gettotalframes({
  				dir=>$proccessvideodir,
@@ -617,25 +619,22 @@ if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
 
 }
 
-my $time_start = \$traco->_preparedtime({timeformat=>0,});
+my $time_start = \$traco->_preparedtime({timeformat=>4,});
 $traco->message({msg=>"JOB START -- ${$time_start}",}) ;
 
 
+my $videoname = \$traco->getfromxml({field=>'title',file=>"$proccessvideodir/$tracoenv->{'traco_xml'}",debug=>$tracoenv->{'debug'},});
 
 if ( $tracoenv->{'writelog'} ) {
- $traco->_runexternal({line=>${$runline},
+	$traco->_runexternal({line=>${$runline},
  								debug=>$tracoenv->{'debug_flag'},
  								starttime => ${$time_start} ,
- 								videoname => $proccessvideodir,
+ 								videoname => ${$videoname},
  								svdrpsend_flags=>$tracoenv->{'svdrpsend_flags'},
  								writelog=>"$proccessvideodir/handbrake.log", });
-
-# $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},writelog=>"$proccessvideodir/handbrake.log",});
 } else {
- $traco->_runexternal({ line=>${$runline},
+	$traco->_runexternal({ line=>${$runline},
  								debug=>$tracoenv->{'debug_flag'},});
- 
-# $hbrc = \$traco->run_handbrake({execline=>${$runline},debug=>$tracoenv->{'debug_flag'},});
 }
 
 	my $time_end = \$traco ->_preparedtime({timeformat=>0,});
@@ -646,6 +645,7 @@ $time_end = undef;
 $runline = undef;
 $profile = undef;
 $hba = undef;
+$videoname = undef ;
 return ('_transcodevideo_done');
 } # end sub _proccessqueue
 
