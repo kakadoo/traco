@@ -17,9 +17,9 @@ use Sys::Syslog qw/:DEFAULT setlogsock/;
 require Exporter;
 use vars qw($VERSION @ISA @EXPORT_OK);
 use base qw(Exporter);
-@EXPORT_OK = qw(changexmlfile _createxmlfile _add_profile getfromxml createvdrtranscodexml);
+@EXPORT_OK = qw(changexmlfile _createxmlfile _add_profile getfromxml createxml);
 
-$VERSION = '0.21';
+$VERSION = '0.23';
 
 #
 # 0.01 inital version
@@ -39,24 +39,30 @@ sub new {
 	return $self;
 } # end sub new
 
-sub createvdrtranscodexml {
+sub createxml {
 my ($self,$args) = @_;
 my $videopath=\$args->{'dir'};
 my $dbg=\$args->{'debug'};
 my $profile=\$args->{'profile'};
 my $returnline = q{};
+my $xml = \$args->{'xml'};
+my $ts = \$args->{'ts'};
 
-$self->message ({msg=>"vdrtranscode.xml not exist , create in ${$videopath}",v=>'v',});
+$self->message ({msg=>"${$xml} not exist , create in ${$videopath}",v=>'v',});
 my $vdrinfocontent = \$self->parsevdrinfo({dir=>${$videopath},debug=>${$dbg},});
 if ( ${$vdrinfocontent} ) {
   my $rc = \$self->_createxmlfile({dir=>${$videopath},
 				    debug=>${$dbg},
 				    vdrinfo=>${$vdrinfocontent},
-				    profile=>${$profile},});
+				    profile=>${$profile},
+				    xml=>${$xml},
+				    ts=>${$ts},
+				    });
+
       if (${$rc} eq 'recording') {
-	$returnline ="createvdrtranscodexml: still ${$rc}";
+	$returnline ="createxml: still ${$rc}";
       } else {
-	$self->message ({msg=>"create ${$videopath}/vdrtranscode.xml done",});
+	$self->message ({msg=>"create ${$videopath}/${$xml} done",});
 	$returnline = ${$rc};
       }
     }
@@ -196,6 +202,9 @@ my $xmlpath = \$args->{'dir'};
 my $vdrinfo = \$args->{'vdrinfo'};
 my $dbg = \$args->{'debug'};
 my $profile=\$args->{'profile'};
+my $xmlfile = \$args->{'xml'};
+my $tsfile= \$args->{'ts'};
+#print Dumper $args;
 
 my @writecontent = ();
 my $z=0;
@@ -206,7 +215,6 @@ my $mytime = time ;
 # caculate vdrinfo startime + vdrinfo duration + 10 min
 my $endtime = ${$vdrinfo}->{'starttime'} + ${$vdrinfo}->{'duration'} + SECHSNULLNULL ;
 if ($mytime < $endtime ) { return ('recording') ; };
-
 
 # write first status
 push @writecontent,'<status>offline</status>';
@@ -229,8 +237,8 @@ push @writecontent,'</vdrinfo>';
 
 # check for .ts files
 my @tsfiles = ();
-if ( -e "${$xmlpath}/vdrtranscode.ts" )  {
-  push @tsfiles , "${$xmlpath}/vdrtranscode.ts" ;
+if ( -e "${$xmlpath}/${$tsfile}" )  {
+  push @tsfiles , "${$xmlpath}/${$tsfile}" ;
 } else {
   @tsfiles = $self->_get_files_in_dir ({dir=>${$xmlpath},pattern=>'*.ts',});
 }
@@ -253,23 +261,9 @@ for my $w (@writecontent) {
    $self->message({msg=>"_createxmlfile | write | $w" , debug=>${$dbg},v=>'vvv', });
 }
 
-#my $profiledefaults=\$self->getprofile({profile=>'default'});
-#my $p=\$self->getprofile({profile=>${$profile},debug=>${$dbg},});
-#my @keys = split /\s/smx , ${$profiledefaults}->{'keys'};
-#if ( ${$p}->{'shortname'} ) {
-#  push @writecontent,"<profile name=\"${$p}->{'shortname'}\">";
-#  for my $k (@keys) {
-#      if ($k =~ /^shortname$/smx ) { next ; }
-#      if ( ( $k =~ /^quality$/smx ) and ( ${$p}->{$k} =~ /(?:UVHQ|VHQ|HQ|MQ|LQ|VLQ)/smx ) )  {
-#	push @writecontent,"<$k>${$profiledefaults}->{$k}->{${$p}->{'quality'}}</$k>";
-#      } else {
-#	push @writecontent,"<$k>${$p}->{$k}</$k>";
-#      }
-#    }
-#  }
-#push @writecontent,'</profile>';
-my $wrrc = \$self->writefile({file=>"${$xmlpath}/vdrtranscode.xml",content=>\@writecontent,debug=>${$dbg}});
-$self->_add_profile({profile=>${$profile},dir=>${$xmlpath},debug=>${$dbg},});
+my $wrrc = \$self->writefile({file=>"${$xmlpath}/${$xmlfile}",content=>\@writecontent,debug=>${$dbg}});
+
+$self->_add_profile({profile=>${$profile},dir=>${$xmlpath},debug=>${$dbg},xml=>${$xmlfile}, });
 
 return ('_createxmlfile_done');
 }
@@ -279,6 +273,7 @@ my ($self,$args) = @_;
 my $dbg = \$args->{'debug'};
 my $profile=\$args->{'profile'};
 my $xmlpath = \$args->{'dir'};
+my $xmlfile = \$args->{'xml'};
 
 my @writecontent ;
 
@@ -299,7 +294,7 @@ if ( ${$p}->{'shortname'} ) {
   }
 push @writecontent,'</profile>';
 
-my $wrrc = \$self->writefile({file=>"${$xmlpath}/vdrtranscode.xml",content=>\@writecontent,options=>'>>',debug=>${$dbg},});
+my $wrrc = \$self->writefile({file=>"${$xmlpath}/${$xmlfile}",content=>\@writecontent,options=>'>>',debug=>${$dbg},});
 
 return ('_addprofile_done');
 }
@@ -309,7 +304,12 @@ my $file = \$args->{'file'};
 my $field = \$args->{'field'};
 my $block = \$args->{'block'} ;
 my $dbg = \$args->{'debug'};
+
 my $returnline = {};
+
+#my @CA = caller 1;
+#print Dumper $CA[3];
+#print Dumper $args;
 
 if ( ( not ( $field ) ) and ( not ( ${$file} ) ) ) { return ('missing_option_getfromxml'); }
 
