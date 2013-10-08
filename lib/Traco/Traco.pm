@@ -56,14 +56,15 @@ use base qw(Exporter Traco::Tracoio
 						setup 
 						findmyfile 
 						_filelist 
+						_preparedtime
 						removelockfile 
 						writelockfile 
 						readlockfile 
 						_runexternal 
 						preparepath 
-						message 
-						setcpuoptions 
-						run_handbrake 
+						message
+						setcpuoptions
+						run_handbrake
 						prepare_crop 
 						buildrunline _
 						handbrakeanalyse_cas 
@@ -71,7 +72,7 @@ use base qw(Exporter Traco::Tracoio
 						prepshellpath
 						);
 
-$VERSION = '0.23';
+$VERSION = '0.24';
 
 #
 # 0.01 inital version
@@ -97,11 +98,12 @@ sub prepare_traco_ts {
 my ($self,$args) = @_;
 my $dir = \$args->{'source'};
 my $dbg = \$args->{'debug'};
-my $vdrversion=\$args->{'vdrversion'},
-my $fpstype=\$args->{'fpstype'},
-my $hb_bin=\$args->{'hb_bin'},
-my $nice= \$args->{'nice'},
-my $xmlfile = "${$dir}/vdrtranscode.xml";
+my $vdrversion=\$args->{'vdrversion'};
+my $fpstype=\$args->{'fpstype'};
+my $hb_bin=\$args->{'hb_bin'};
+my $nice= \$args->{'nice'};
+my $xmlfile = \$args->{'xml'};
+my $tsfile = \$args->{'target'};
 my $returncode = 'prepare_traco_ts_done';
 my $vdr_marks = \$args->{marksfile};
 my $vdr_info = \$args->{infofile};
@@ -125,7 +127,7 @@ my $info = \$self->parsevdrinfo({dir=>${$dir},file=>${$vdr_info},debug=>${$dbg},
   }
 } else {
       my $cutrc=\$self->combine_ts ({source=>${$dir},
-					      target=>"${$dir}/vdrtranscode.ts",
+					      target=>${$tsfile},
 					      debug=>${$dbg},
 					      vdrversion=>${$vdrversion},
 					      fpstype=>${$fpstype},
@@ -133,9 +135,10 @@ my $info = \$self->parsevdrinfo({dir=>${$dir},file=>${$vdr_info},debug=>${$dbg},
 					      nice=>${$nice},
 					      marksfile=>$vdr_marks,
 					      indexfile=>$vdr_index,
+					      xml=>${$xmlfile},
 					      });
 	if ( ${$cutrc} eq 'combine_ts_done' ) {
-	  $self->changexmlfile({file=>$xmlfile,action=>'change',field=>'status',to=>'online',debug=>${$dbg},});
+	  $self->changexmlfile({file=>${$xmlfile},action=>'change',field=>'status',to=>'online',debug=>${$dbg},});
 	} else {
 	  $self->message ({msg=>"prepare_traco_ts returncode ${$cutrc} in ${$dir}",v=>'vvv'});
 	  $returncode = 'prepare_traco_ts_cut_error';
@@ -154,7 +157,7 @@ my $dbg = \$args->{debug};
 my $fps = \$args->{fps};
 my $duration = \$args->{duration};
 my $totalframes ;
-my $xmlfile = "${$dir}/vdrtranscode.xml";
+my $xmlfile = \$args->{'xml'};
 
 # check marks and resolve start and end point
 # if marks not available use start / stop time from info
@@ -174,7 +177,7 @@ my $xmlfile = "${$dir}/vdrtranscode.xml";
 			$totalframes = ${$vdrinfo}->{duration} * ${$vdrinfo}->{frames};
   		}
 
-$self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>$totalframes,debug=>${$dbg},});
+$self->changexmlfile({file=>${$xmlfile},action=>'add',field=>'totalframes',content=>$totalframes,debug=>${$dbg},});
 
 return $totalframes;
 }
@@ -249,6 +252,9 @@ given ($tiformat) {
   when ( /^3$/smx ) {
     $ti = "$mday $mo $year $hour $min $sec";
   }
+    when ( /^4$/smx ) {
+    $ti = time;
+  }
 }
   return ($ti);
 } # end sub preparetime
@@ -268,14 +274,14 @@ if ( ${$p} ) {
 my @CA = caller 1;
 
 if ( ($CA[DREI] ) and ( $CA[DREI] ne 'Traco::Traco::getfilelist') ) {
-  $self->message({ msg=>'Vdrtranscode.pm|getfilelist',v=>'vvvvv',});
+  $self->message({ msg=>'Traco.pm|getfilelist',v=>'vvvvv',});
   @dirlist = ();
 }
 
-$self->message({ msg=>"Vdrtranscode.pm|_getfilelist|search pattern = $pattern",debug=>${$debug},v=>'vvvvv',});
+$self->message({ msg=>"Traco.pm|_getfilelist|search pattern = $pattern",debug=>${$debug},v=>'vvvvv',});
 
 if ( not ( -d ${$searchpath} ) ) { return ('getfilelist_pathnotfound'); }
-$self->message({ msg=>"Vdrtranscode.pm|getfilelist|searchpath ${$searchpath} exist",debug=>${$debug},v=>'vvvvv',});
+$self->message({ msg=>"Traco.pm|getfilelist|searchpath ${$searchpath} exist",debug=>${$debug},v=>'vvvvv',});
 
 my @double = grep { /\Q(${$searchpath})/smx } @dirlist ;
 if ( $#double >= 0 ) { next  ;};
@@ -299,7 +305,7 @@ foreach my $f (@flist) {
   my @tmp = grep { /\Q$dir/smx } @dirlist;
 
   if ( ( $#tmp < 0 )  and ( $file =~ /($pattern)/smx ) ) {
-    $self->message({ msg=>"Vdrtranscode.pm|_getfilelist|add file $file to return hash \@dirlist",debug=>${$debug},v=>'vvvvv',});
+    $self->message({ msg=>"Traco.pm|_getfilelist|add file $file to return hash \@dirlist",debug=>${$debug},v=>'vvvvv',});
     push @dirlist,$file;
   } else {
     next;
@@ -347,7 +353,9 @@ sub writelockfile  {
 my ($self,$args) = @_;
 my $lckpath = \$args->{'dir'};
 my $computer = hostname ;
-my $lockfile = "${$lckpath}/vdrtranscode.lck";
+my $lck = \$args->{'lck'};
+my $lockfile = "${$lckpath}/${$lck}";
+
 my $returnline = 'done';
 my @content = ();
 push @content,$computer;
@@ -364,9 +372,10 @@ return ($returnline);
 sub readlockfile {
 my ($self,$args) = @_;
 my $lckpath = \$args->{'dir'};
+my $lck = \$args->{'lck'};
 my $computer = q{};
 
-open my $FH , '<', "${$lckpath}/vdrtranscode.lck" or croak $ERRNO;
+open my $FH , '<', "${$lckpath}/${$lck}" or croak $ERRNO;
   while (<$FH>) {
     chomp;
     $computer = $_;
@@ -379,10 +388,11 @@ return ($computer);
 sub removelockfile {
 my ($self,$args) = @_;
 my $lckpath = \$args->{'dir'};
+my $lck = \$args->{'lck'};
 my $rc = q{};
 
-if (-e "${$lckpath}/vdrtranscode.lck" ) {
-  $rc = unlink "${$lckpath}/vdrtranscode.lck" ;
+if (-e "${$lckpath}/${$lck}" ) {
+  $rc = unlink "${$lckpath}/${$lck}" ;
 }
 return ($rc);
 }
@@ -390,21 +400,20 @@ return ($rc);
 sub buildrunline {
 my ($self,$args) = @_;
 my $dir=\$args->{'dir'};
-my $dbg=\$args->{'debug'};
 my $tracoenv=\$args->{'tracoenv'};
 my $hba=\$args->{'hba'};
 my $profile=\$args->{'profile'};
 my $recalc_video_bitrate = \$args->{'recalc_video_bitrate'};
 my $target_mbyte_size = \$args->{'target_mbyte_size'};
-my $useclassic = \$args->{'useclassic'};
-
+my $dbg=${$tracoenv}->{'debug'};
+			 	   
 my $runline = "nice -n ${$profile}->{'nice'} ${$profile}->{'hb_bin'} --no-dvdnav";
 
 if ( ${$profile}->{'setcpu'} ) {
   $runline .= " -C ${$profile}->{'setcpu'}";
 }
 
-$runline .= " -i ${$dir}/vdrtranscode.ts";
+$runline .= " -i ${$dir}/${$tracoenv}->{'traco_ts'}";
 
 if ( ${$profile}->{'largefile'} ) {
   $runline .= ' --large-file';
@@ -436,7 +445,7 @@ if ( ${$profile}->{'crop'} ) { $runline .= " --crop ${$profile}->{'crop'}" ; }
 if ( ${$hba}->{'fps'} == ZWEIFUENF ) { $runline .= " -r ${$hba}->{'fps'}"; };
 
 
-if ( not ( ${$useclassic} ) ) {
+if ( not ( ${$tracoenv}->{'use_classic_profile'} ) ) {
  if ( ${$profile}->{'codec'} ) {
    $runline .= " ${$profile}->{'codec'}";
  }
@@ -467,17 +476,21 @@ if ( ${$profile}->{'param_anamorph'} ) {
 }
 $runline .= " --modulus ${$profile}->{'modulus'}";
 $runline .= " -X ${$profile}->{'param_x'}";
-$runline .= " -o ${$dir}/vdrtranscode_tmp.${$profile}->{'container'}";
+#$runline .= " -o ${$dir}/vdrtranscode_tmp.${$profile}->{'container'}";
+$runline .= " -o ${$dir}/${$tracoenv}->{'traco_tmp'}.${$profile}->{'container'}";
+
 $runline .= ' 2>&1';
 
 undef $profile;
 undef $hba;
 
-$self->message({msg=>"[buildrunline]runline = $runline",v=>'vvv',debug=>${$dbg},}) ;
+$self->message({msg=>"[buildrunline]runline = $runline",v=>'vvv',debug=>$dbg,}) ;
 return ($runline);
 }
 sub prepare_audio_tracks {
 my ($self,$args) = @_;
+#print Dumper $args;
+
 my $audiotrack = \$args->{'audiotrack'}; # can be ALL or FIRST
 my $hbanalyse = \$args->{'hbanalyse'};
 my $dbg = \$args->{'debug'};
@@ -570,12 +583,14 @@ ${$file} =~ s/[)]/\\)/gmisx ;
 ${$file} =~ s/[%]/\\%/gmisx ;
 ${$file} =~ s/[']/\\'/gmisx ;
 ${$file} =~ s/[`]/\\`/gmisx ;
-${$file} =~ s/[']/\\'/gmisx ;
+#${$file} =~ s/[~]/\\~/gmisx ;
+#${$file} =~ s/\//\\\//gmisx ;
 
 return ${$file};
 }
 sub handbrakeanalyse {
 my ($self,$args) = @_;
+
 my $file = \$args->{'file'};
 my $dbg = \$args->{'debug'};
 my $mynice = \$args->{'nice'};
@@ -586,18 +601,13 @@ my $fpstype=\$args->{'fpstype'};
 my $audiotrack = \$args->{'audiotrack'};
 my $drc=\$args->{'drc'};
 my $aac_bitrate=\$args->{'aac_bitrate'};
-
+my $xmlfile = \$args->{'xml'};
 
 #my $returndb = {};
 my @tmpdb2;
 # prepare & in path
 my $workfile = $self->prepshellpath({file=>${$file},debug=>${$dbg} });
 
-#my $workfile = ${$file} ;
-#$workfile =~ s/[&]/\\&/gmisx ;
-#$workfile =~ s/[(]/\\(/gmisx ;
-#$workfile =~ s/[)]/\\)/gmisx ;
-#$workfile =~ s/[%]/\\%/gmisx ;
 
 my $runline = "nice -n ${$mynice} ${$handbrake} --scan --no-dvdnav";
 if ( ${$starttime} )  { $runline .= " --start-at duration:${$starttime}"; }
@@ -643,7 +653,7 @@ for my $o (@stage3options) {
 if (${$fpstype} =~ /^(?:vdr|VDR)$/smx ) {
   my $dir = dirname ${$file};
 
-  my $vdrfps = \$self->getfromxml({file=>"$dir/vdrtranscode.xml",
+  my $vdrfps = \$self->getfromxml({file=>${$xmlfile},
 				      field=>'frames',
 					block=>'vdrinfo',
 					debug=>${$dbg},
@@ -770,6 +780,12 @@ return ($returnline);
 
 sub message {
 my ($self,$args) = @_;
+#print Dumper $args;
+if ( not ( defined $args->{'msg'} ) ) { return '[message]missing msg'};
+
+my $log2syslog=\&_output_syslog;
+my $log2stdout=\&_output_stdout;
+
 my $message = \$args->{'msg'};
 my $dbg=\$args->{'debug'};
 my $v = \$args->{'v'} ;
@@ -789,9 +805,17 @@ if ( ${$verboselevel} ) {$vl = length ${$verboselevel} ; }
 if ( ${$v} )  { $vv = length ${$v} ; }
 
 if ($isd == 1) {
-  $self->_output_syslog({vv=>$vv,vl=>$vl,message=>${$message},debug=>${$dbg},});
+#  $self->_output_syslog({vv=>$vv,vl=>$vl,message=>${$message},debug=>${$dbg},});
+  $log2syslog->({vv=>$vv,
+  						vl=>$vl,
+  						message=>${$message},
+  						debug=>${$dbg},
+  						facility=>$self->{'facility'},
+  						priority=>$self->{'priority'},  
+					});
 } elsif ($isd == 0 ) {
-  $self->_output_stdout({vv=>$vv,vl=>$vl,message=>${$message},debug=>${$dbg},});
+#  $self->_output_stdout({vv=>$vv,vl=>$vl,message=>${$message},debug=>${$dbg},});
+  $log2stdout->({vv=>$vv,vl=>$vl,message=>${$message},debug=>${$dbg},});
 }
 undef $vv;
 undef $isd;
@@ -801,7 +825,10 @@ return ();
 }
 
 sub _output_stdout {
-my ($self,$args) = @_;
+#my ($self,$args) = @_;
+my $args = shift;
+#print Dumper $args;
+
 my $vv = \$args->{'vv'};
 my $verbose = ${$vv};
 my $vl = \$args->{'vl'};
@@ -825,13 +852,16 @@ return ();
 }
 
 sub _output_syslog {
-my ($self,$args) = @_;
+#my ($self,$args) = @_;
+my $args = shift;
+#print Dumper $args;
+
 my $vv = \$args->{'vv'};
 my $vl = \$args->{'vl'};
 my $verbose = ${$vv};
 my $message = \$args->{'message'};
-my $facility = \$self->{'facility'};
-my $priority = \$self->{'priority'};
+my $facility = \$args->{'facility'};
+my $priority = \$args->{'priority'};
 my $dbg = \$args->{'debug'};
 
   given ($verbose) {
@@ -871,18 +901,19 @@ my ($self,$args) = @_;
 my $dbg = \$args->{'debug'}  ;
 my $l=\$args->{'line'} ;
 my $wlog=\$args->{'writelog'};
-
-
-if ( $args->{jobout} )  {
-	my $time_start = \$self->_preparedtime({timeformat=>0,});
-	$self->message({msg=>"JOB START -- ${$time_start}",}) ;
+my ( $starttime,$videoname,$svdrpsend_flags ) = q{};
+ 
+if ( $args->{'writelog'} ) {
+	$starttime = \$args->{'starttime'} ;
+	$videoname = \$args->{'videoname'} ;
+	$svdrpsend_flags = \$args->{'svdrpsend_flags'};
 }
-  
-  
+ 
 my $line = ${$l} ;
-$self->message({msg=>"[_runexternal]run | $line",v=>'vvv',debug=>${$dbg},});
-
 if ( not ( $line ) ) { return ('no_exec_line_exists_for_runexternal')};
+
+$self->message({msg=>"[_runexternal]exec | $line",v=>'vvv',debug=>${$dbg},});
+
 my $returnline = {};
 
 my @response = ();
@@ -890,24 +921,43 @@ my @errors = ();
 my $childpid = open3(\*CHLD_IN,\*CHLD_OUT, \*CHLD_ERR, $line);
 
   use Symbol 'gensym'; #$err = gensym;
-  if ( ${$dbg} ) {
+#  if ( ${$dbg} ) {
     while (<CHLD_OUT>) {
-      $self->message({msg=>"[_runexternal]$_",debug=>${$dbg},v=>'vvvvvvv',});
+    	$_ =~ s/\x0D//g ; # remove ^M
+      if ( ${$dbg} ) { $self->message({msg=>"[_runexternal]$_",debug=>${$dbg},v=>'vvvvvvv',}); }
+      
       if ( ${$wlog} ) {
-	$self->_writelog({line=>$_,file=>${$wlog},});
+         if ( $_ =~ qr/^Encoding\:/smx ) {
+                my ( $l, undef ) = split qr/(?:\)|[%])(?:E|\[)/smx ,$_ ; 
+                $l =~ s/\(//smx ;
+	         	$self->bgprocess({line=>$l,starttime=>${$starttime},videoname=>${$videoname},svdrpsend_flags=>${$svdrpsend_flags},});
+   				undef $l;      	
+         }
+         if ( $_ =~ /^Encode\sdone[!]$/smx ) {
+         	   $self->bgprocess({line=>'Encode done!',starttime=>${$starttime},videoname=>${$videoname},svdrpsend_flags=>${$svdrpsend_flags},});
+         }
+			$self->_writelog({line=>$_,file=>${$wlog},});
       };
       push @response,$_;
-    }
-  } else {
-    while (<CHLD_OUT>) {
-      if ( ${$wlog} ) {
-	$self->_writelog({line=>$_,file=>${$wlog},});
       };
-      push @response,$_;
-    }
-   }
-  #@response = <CHLD_OUT>;
-  @errors = <CHLD_ERR>;
+
+#} else {
+#    while (<CHLD_OUT>) {
+#      $_ =~ s/\x0D//g ; # remove ^M
+#      if ( ${$wlog} ) {
+#      	if ( $_ =~ qr/^Encoding\:/smx ) {
+#			$self->bgprocess({line=>"$_\n",starttime=>${$starttime},videoname=>${$videoname},svdrpsend_flags=>${$svdrpsend_flags},})
+#      	}
+#			$self->_writelog({line=>"$_\n",file=>${$wlog},});
+#     };
+#
+#      push @response,$_;
+#    }
+#   }
+#print Dumper @response;
+
+	push @errors,<CHLD_ERR> ;
+	
   waitpid $childpid,0 or croak $ERRNO;
   $returnline->{'exitcode'} = $CHILD_ERROR >> ACHT;
   chomp @errors;
@@ -918,10 +968,6 @@ my $childpid = open3(\*CHLD_IN,\*CHLD_OUT, \*CHLD_ERR, $line);
   close CHLD_OUT or croak $ERRNO;
   close CHLD_ERR or croak $ERRNO;
 
-if ( $args->{jobout} )  {
-	my $time_end = \$self->_preparedtime({timeformat=>0,});
-	$self->message({msg=>"JOB STOP -- ${$time_end}",}) ;
-}  
 
 return ($returnline);
 } # end sub _runexternal
