@@ -12,33 +12,36 @@ use Carp;
 use English '-no_match_vars';
 use lib 'lib/';
 use Traco::Traco ;
+use Traco::Config ;
 # now feature from 5.10
 use feature qw/switch/;
 #use Data::Dumper;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 # 0.03 fix delete
 # 0.04 no use of indir form config anymore.
-
+# 0.05 changes for usage Config.pm
 my @options = @ARGV;
 my $z=0;
 my @transcodeoptions = ();
 my $admenv = {};
-$admenv->{'configfile'} = '/etc/vdr/traco.conf'; # set default
-handle_configfile (@options);
+#$admenv->{'configfile'} = '/etc/vdr/traco.conf'; # set default
+#handle_configfile (@options);
 #handle_profile_option (@options);
+
+my $dstpath = pop @options;
 
 while ($#options >= $z) {
   given ($options[$z]) {
     when ( /^audiotrack$/smx ) {
       my $a=$z+1;
-      $admenv->{'audiotrack'}=$options[$a];
+      $admenv->{'audiotrack'} = $options[$a];
       $z++;
     }
     when ( /^container$/smx ) {
       my $a=$z+1;
-      $admenv->{'container'}=$options[$a];
+      $admenv->{'container'} = $options[$a];
       $z++;
     }
     when ( /^show$/smx ) {
@@ -48,12 +51,12 @@ while ($#options >= $z) {
     }
     when ( /^quality$/smx ) {
       my $a=$z+1;
-      $admenv->{'quality'}=$options[$a];
+      $admenv->{'quality'} = $options[$a];
       $z++;
     }
     when ( /^status$/smx ) {
       my $a=$z+1;
-      $admenv->{'status'}=$options[$a];
+      $admenv->{'status'} = $options[$a];
       $z++;
     }
     when ( /^delete$/smx ) {
@@ -63,6 +66,10 @@ while ($#options >= $z) {
     }
     when ( /^[-]d$/smx ) {
       $admenv->{'debug_flag'}=1;
+    }
+    when ( /^[-]c$/smx ) {
+      my $a = $z+1;
+      $admenv->{'configfile'} = $options[$a];
     }
     when (/^[-][-]help$/smx ) {
       _myhelp ();
@@ -77,27 +84,33 @@ while ($#options >= $z) {
       $z++;
 } # end while options;
 
+
 my $traco=Traco::Traco->new({debug=>$admenv->{'debug_flag'},});
-my $config;
-if ( -e $admenv->{'configfile'} ) {
-  $config = \$traco->parseconfig({config=>$admenv->{'configfile'},debug=>$admenv->{'debug_flag'},});
-} else {
-  print {*STDOUT} "missing configfile exit $PROGRAM_NAME\n" or croak $ERRNO;
-  exit 1;
+my $config = Traco::Config->new ();
+
+#print Dumper $config ;
+if ( ( defined $admenv->{'configfile'} ) and ( -e $admenv->{'configfile'} )) {
+  $config->parseconfig({config=>$admenv->{'configfile'},debug=>$admenv->{'debug_flag'},});
 }
-# my $indir = ${$config}->{'Indir'};
+# else {
+#  print {*STDOUT} "missing $admenv->{'configfile'} exit $PROGRAM_NAME\n" or croak $ERRNO;
+#  exit 1;
+#}
+
 my $profiledefaults=\$traco->getprofile({profile=>'default',});
 
 set_user ();
 
-my @tmp = reverse @options;
-my $workdir = $traco->preparepath({path=>$tmp[0],});
-undef @tmp;
+#my @tmp = reverse @options
+#my $workdir = $traco->preparepath({path=>$tmp[0],});
+my $workdir = $traco->preparepath({path=>$dstpath,});
+#undef @tmp;
 if ( ( not ( defined $workdir ) ) or ( $#options < 0 ) ) {
   print {*STDOUT} "missing path ! or options try --help\n" or croak $ERRNO;
   leave ('_error');
 }
 
+#print Dumper $admenv;
 
 if ( $admenv->{'status'} ) {
     my $rc=\get_set_status ('status',$admenv->{'status'},$workdir);
@@ -149,22 +162,6 @@ if ( $admenv->{'delete'} ) {
   leave('_done');
 }
 
-#sub handle_profile_option {
-#my @opts = @_;
-#my @existsprofile = grep { /profile/smx } @opts;
-#my @existsshow = grep { /show/smx } @opts;
-#if ( $#existsshow >= 0 ) { return ('show_exists'); }
-#
-#if ( $#existsprofile == 0 ) {
-#  for my $o (0 .. $#opts) {
-#    if ( $opts[$o] =~ /^profile$/smx ) {
-#      my $a = $o+1;
-#      $admenv->{'profile'} = $opts[$a];
-#    }
-#  }
-#}
-#return ('handle_profile_option_done');
-#}
 
 sub handle_configfile {
 my @opts = @_;
@@ -237,21 +234,22 @@ for my $p (@prof) {
 
 if ( $profileok eq 'true' ) {
 my $rc = \$traco->createvdrtranscodexml({dir=>$workdir,
-					  debug=>${$config}->{'debug_createvdrtranscodexml'},
+					  debug=>$config->{'debug_createvdrtranscodexml'},
 					  profile=>$newprofile,
 					});
 print {*STDOUT} "create new xml file with profile $newprofile status_${$rc}\n" or croak $ERRNO;
 }
 return ('create_new_profile_done');
 }
-
 sub set_user {
-if ( ( ${$config}->{'vdr_user'} ) and ( getpwnam ${$config}->{'vdr_user'} ) ) {
-  my $vdruid = getpwnam ${$config}->{'vdr_user'};
+#print Dumper $config;
+
+if ( ( $config->{'vdr_user'} ) and ( getpwnam $config->{'vdr_user'} ) ) {
+  my $vdruid = getpwnam $config->{'vdr_user'};
   $EUID = $vdruid;
   $UID = $vdruid;
 } else {
-	
+
   print {*STDOUT} "WARNING: missing or wrong vdr_user in traco config or system passwd\n" or croak $ERRNO;
 }
 return ('setup_user_done');
@@ -260,7 +258,7 @@ return ('setup_user_done');
 sub showxml {
 my $opts=shift;
 my $dir=$opts->{'dir'};
-my $xml = $traco->getfromxml({file=>"$dir/vdrtranscode.xml",field=>'ALL',});
+my $xml = $traco->getfromxml({file=>"$dir/$config->{'traco_xml'}",field=>'ALL',});
 if ( $opts->{'show'} ) {
   given ( $opts->{'show'} ) {
     when ( /^status$/smx ) {
@@ -287,18 +285,15 @@ sub get_set_status {
 my $option = shift ;
 my $value = shift ;
 my $mypath = shift ;
-my $status = \$traco->getfromxml({file=>"$mypath/vdrtranscode.xml",field=>'status',});
+my $status = \$traco->getfromxml({file=>"$mypath/$config->{'traco_xml'}",field=>'status',});
 my $returnline;
 if ( not ( $mypath ) ) { return ('missing_path'); }
 if ( ${$status} =~ /^proccessing$/smx ) { return ("$mypath in progress"); }
 
 given ($option) {
-  #when ( /^show$/smx ) {
-  #  $returnline = ${$status};
-  #}
   when ( $value =~ qr/^(?:ready|online|offline|cutfiles|joinfiles|prepare_traco_ts)$/smx ) {
     my $rc=\$traco->changexmlfile
-      ({file=>"$mypath/vdrtranscode.xml",
+      ({file=>"$mypath/$config->{'traco_xml'}",
 	action=>'change',
 	field=>'status',
 	to=>$value,
@@ -308,7 +303,7 @@ given ($option) {
   }
   when  ( /^audiotrack$/smx ) {
     my $rc=\$traco->changexmlfile
-      ({file=>"$mypath/vdrtranscode.xml",
+      ({file=>"$mypath/$config->{'traco_xml'}",
 	action=>'change',
 	field=>'audiotracks',
 	to=>$admenv->{'audiotrack'},
@@ -318,7 +313,7 @@ given ($option) {
   }
   when  ( /^quality$/smx ) {
     my $rc=\$traco->changexmlfile
-      ({file=>"$mypath/vdrtranscode.xml",
+      ({file=>"$mypath/$config->{'traco_xml'}",
 	action=>'change',
 	field=>'quality',
 	to=>$admenv->{'quality'},
@@ -328,7 +323,7 @@ given ($option) {
   }
   when  ( /^container$/smx ) {
     my $rc=\$traco->changexmlfile
-      ({file=>"$mypath/vdrtranscode.xml",
+      ({file=>"$mypath/$config->{'traco_xml'}",
 	action=>'change',
 	field=>'container',
 	to=>$admenv->{'container'},
@@ -349,7 +344,7 @@ sub _myhelp {
 
 1;
 __DATA__
-vdrtrancodeadm.pl 
+tracoadm.pl 
 audiotrack 
 	    first or all
 quality 
