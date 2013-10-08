@@ -15,7 +15,7 @@ use base qw(Exporter);
 
 @EXPORT_OK = qw(rename_and_store);
 
-$VERSION = '0.01';
+$VERSION = '0.03';
 
 #
 # 0.01 inital version
@@ -55,13 +55,18 @@ my $returndb = '_rename_and_store_done';
 my $dstdir=\$args->{'destination'};
 my $dir = ${$d};
 my $store = \$args->{'store'}; # copy or move
+my $xml = \$args->{'xml'};
+my $t = \$args->{'tmpfile'};
+my $tmpfile = ${$t};
 
 if ( not ( ${$store} ) ) { ${$store} = 'move'; }
 if ( not ( ${$format} ) ) { return ('rename_and_store_missing_format'); }
 if ( not ( ${$dstdir} ) ) { return ('rename_and_store_missing_destination_directory'); }
 my $filename = ${$format};
 
-my $vdrinfo = \$self->getfromxml({file=>"$dir/vdrtranscode.xml",field=>'ALL',debug=>${$dbg},});
+
+
+my $vdrinfo = \$self->getfromxml({file=>"$dir/${$xml}",field=>'ALL',debug=>${$dbg},});
 my $x = ${$vdrinfo}->{'pixel'};
 my $y = ${$vdrinfo}->{'ypixel'};
 my $fps = ${$vdrinfo}->{'frames'};
@@ -101,14 +106,15 @@ my $sourcefile = q{};
 my @flist = \$self->_get_files_in_dir({dir=>$dir,});
 
 foreach my $f (@flist) {
-  if (${$f} =~ /vdrtranscode_tmp[.](?:mp4|m4v|mkv)/smx ) {
+  if (${$f} =~ /$tmpfile[.](?:mp4|m4v|mkv)/smx ) {
     $sourcefile = ${$f};
   }
 }
-$self->message({msg=>"_rename_and_store | work with $sourcefile",v=>'vvv',});
+$self->message({msg=>"_rename_and_store | sourcefile  $sourcefile",v=>'vvv',});
 
 $self->message({msg=>"_rename_and_store | copy $sourcefile to ${$dstdir}/$filename",v=>'v',});
-
+# a slash is not allowed in filename, we replace it with a dash
+$filename =~ s/\//\-/gmisx;
 my $z=1;
 while ( -e "${$dstdir}/$filename" ) {
   $filename = "$filename($z)";
@@ -117,10 +123,10 @@ while ( -e "${$dstdir}/$filename" ) {
 
 given ( ${$store} ) {
   when ( /^copy$/smx ) {
-    copy $sourcefile,"${$dstdir}/$filename";
+    copy $sourcefile,"${$dstdir}/$filename" or croak "[rename_and_store] error $ERRNO\n";
   }
   when ( /^move$/smx ) {
-    move $sourcefile,"${$dstdir}/$filename";
+    move $sourcefile,"${$dstdir}/$filename" or croak "[rename_and_store] error $ERRNO\n";
   }
 }
 
