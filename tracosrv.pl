@@ -316,7 +316,7 @@ foreach my $st (@videoqueue) {
 					      debug=>$tracoenv->{'debug_flag'},
 					      });
 	if ( ( defined ${$files} ) and ( ${$files} ne q{} ) ) {
-      $rc=\$traco->_joinfiles({dir=>$dir,files=>${$files},debug=>$tracoenv->{'debug_flag'},});
+      $rc=\$traco->_joinfiles({dir=>$dir,files=>${$files},debug=>$tracoenv->{'debug_flag'},destination=>$tracoenv->{'traco_ts'},});
       if (${$rc} eq 'joindone') {
 	$traco->changexmlfile({file=>"$dir/$tracoenv->{'traco_xml'}",
 					action=>'change',
