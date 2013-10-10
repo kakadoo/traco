@@ -116,7 +116,7 @@ my $info = \$self->parsevdrinfo({dir=>${$dir},file=>${$vdr_info},debug=>${$dbg},
 #my $totalframes = ${$info}->{'duration'} * ${$info}->{'frames'};
 
   if ( ( defined ${$files} ) and ( ${$files} ne q{} ) ) {
-    my $rc=\$self->_joinfiles({dir=>${$dir},files=>${$files},debug=>${$dbg},});
+    my $rc=\$self->_joinfiles({dir=>${$dir},files=>${$files},debug=>${$dbg},destination=>${$tsfile},});
     if (${$rc} eq 'joindone') {
       $self->changexmlfile({file=>$xmlfile,action=>'change',field=>'status',to=>'online',debug=>${$dbg},});
 #      $self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>$totalframes,debug=>${$dbg},});
