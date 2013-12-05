@@ -10,8 +10,6 @@ use Traco::Tracoxml ;
 use Traco::Tracoprofile ;
 use Traco::Tracorenamefile ;
 use Traco::Tracovdr ;
-#use Traco::Tracohandbrake;
-
 #
 use English '-no_match_vars';
 use Carp;
@@ -21,7 +19,7 @@ use feature qw/switch/;
 use File::Find;
 use Sys::Hostname;
 use File::Basename;
-#use Data::Dumper;
+use Data::Dumper;
 use Fcntl ':flock';
 use Sys::Syslog qw/:DEFAULT setlogsock/;
 use constant { EINSNULLNULLNULL => 1000,
@@ -70,9 +68,10 @@ use base qw(Exporter Traco::Tracoio
 						handbrakeanalyse_cas 
 						gettotalframes
 						prepshellpath
+						getfilesystem
 						);
 
-$VERSION = '0.24';
+$VERSION = '0.25';
 
 #
 # 0.01 inital version
@@ -93,6 +92,21 @@ sub new {
 } # end sub new
 my @dirlist = ();
 
+
+sub getfilesystem {
+my ($self,$args) = @_;
+my $dir = \$args->{'dir'};
+my $dbg = \$args->{'debug'};
+
+my @mountlist = qx(mount) ;
+my @mountpoint = grep { /(${$dir})/smx } @mountlist;
+
+#print Dumper $mountpoint[0];
+
+my (undef,undef,undef,undef,$myfs,undef) = split /\s/smx , $mountpoint[0];
+#print Dumper $myfs;
+return $myfs;
+}
 
 sub prepare_traco_ts {
 my ($self,$args) = @_;
@@ -173,6 +187,7 @@ my $xmlfile = \$args->{'xml'};
   		} else {
   			my $vdrinfo = \$self->parsevdrinfo({dir=>${$dir},
 				    debug=>${$dbg},
+				    file=>${$vdrfiles}->{info},
 			});
 			$totalframes = ${$vdrinfo}->{duration} * ${$vdrinfo}->{frames};
   		}
@@ -192,9 +207,15 @@ my $time_start = \$self->_preparedtime({timeformat=>0,});
 
   $self->message({msg=>"JOB START -- ${$time_start}",}) ;
   my $jobresult = \$self->_runexternal({line=>${$execline},debug=>${$dbg},writelog=>${$wrlog},});
-  for my $l (@{ ${$jobresult}->{'returndata'} } ) {
-    $self->message({msg=>"[jobresult]$l",v=>'vvv'});
-  }
+  
+  map {
+    $self->message({msg=>"[jobresult]$_",v=>'vvv'});
+  } @{ ${$jobresult}->{'returndata'} };
+  
+#  for my $l (@{ ${$jobresult}->{'returndata'} } ) {
+#    $self->message({msg=>"[jobresult]$l",v=>'vvv'});
+#  }
+
   my $time_end = \$self->_preparedtime({timeformat=>0,});
   $self->message({msg=>"JOB STOP -- ${$time_end}",}) ;
 undef $time_end;
@@ -266,6 +287,8 @@ my $debug = \$args->{'debug'};
 my $p = \$args->{'pattern'};
 my $skiplinks = \$args->{'skiplinks'};
 my $pattern = '(?:(?:[.](?:ts|vdr|xml|lck))|info|index|marks|resume)';
+my $fs = \$args->{'fs'};
+
 
 if ( ${$p} ) {
   $pattern = ${$p} ;
@@ -290,28 +313,47 @@ undef @double;
 my @flist =\$self->_get_files_in_dir({dir=>${$searchpath},debug=>${$debug},});
 
 
-
-foreach my $f (@flist) {
-  my $file  = ${$f};
+map {
+  my $file  = ${$_};
   my $dir = dirname $file;
   # skip directory are marked as delete by vdr
   if ( $file =~ /[.]del$/smx ) { next ; }
   # skip links if option set
-  if ( ${$skiplinks} ) { if ( -l $file ) { next ; } }
+  if ( ( ${$fs} !~ /^cifs$/smx ) and ( ${$skiplinks} ) and ( -l $file ) ) { next ; }
   if (-d $file ) {
-    $self->getfilelist ({dir=>$file,pattern=>$pattern,skiplinks=>${$skiplinks},debug=>${$debug},v=>'vvvvv',}) ;
+    $self->getfilelist ({dir=>$file,pattern=>$pattern,skiplinks=>${$skiplinks},debug=>${$debug},fs => ${$fs} , v=>'vvvvv',}) ;
   }
   # skip double entrys
-  my @tmp = grep { /\Q$dir/smx } @dirlist;
+  if ( ( -e $file ) and ( $file =~ /($pattern)/smx ) and ( ! grep { /$file/smx } @dirlist ) ) {
+  		push @dirlist,$file; 
+  } 
+} @flist;
 
-  if ( ( $#tmp < 0 )  and ( $file =~ /($pattern)/smx ) ) {
-    $self->message({ msg=>"Traco.pm|_getfilelist|add file $file to return hash \@dirlist",debug=>${$debug},v=>'vvvvv',});
-    push @dirlist,$file;
-  } else {
-    next;
-  }
-  undef @tmp;
-}
+
+#foreach my $f (@flist) {
+#  my $file  = ${$f};
+#  my $dir = dirname $file;
+#  # skip directory are marked as delete by vdr
+#  if ( $file =~ /[.]del$/smx ) { next ; }
+#  # skip links if option set
+#  if ( ${$skiplinks} ) { if ( -l $file ) { next ; } }
+# if (-d $file ) {
+#    $self->getfilelist ({dir=>$file,pattern=>$pattern,skiplinks=>${$skiplinks},debug=>${$debug},v=>'vvvvv',}) ;
+#  }
+#  # skip double entrys
+#  my @tmp = grep { /\Q$dir/smx } @dirlist;
+#
+#	if ( ( $#tmp < 0 )  and ( $file =~ /($pattern)/smx ) ) {
+#   	$self->message({ msg=>"Traco.pm|_getfilelist|add file $file to return hash \@dirlist",debug=>${$debug},v=>'vvvvv',});
+#    	push @dirlist,$file;
+#  	} else {
+#   	next;
+#	}
+#  undef @tmp;
+#}
+
+#print Dumper @dirlist;
+
 undef @CA;
 undef @flist;
 
@@ -583,7 +625,8 @@ ${$file} =~ s/[)]/\\)/gmisx ;
 ${$file} =~ s/[%]/\\%/gmisx ;
 ${$file} =~ s/[']/\\'/gmisx ;
 ${$file} =~ s/[`]/\\`/gmisx ;
-#${$file} =~ s/[~]/\\~/gmisx ;
+${$file} =~ s/[?]/\\[?]/gmisx ;
+
 #${$file} =~ s/\//\\\//gmisx ;
 
 return ${$file};
@@ -637,16 +680,27 @@ $returndb->{'audioopts'} = $self->prepare_audio_tracks({
   aac_bitrate=>${$aac_bitrate},
   debug=>${$dbg},});
 
-for my $o (@stage1options) {
-    my ($key,$value) = split /[:]\s/smx, $o;
+map {
+    my ($key,$value) = split /[:]\s/smx, $_;
     $returndb->{$key} = $value || q{};
-}
+} @stage1options;
 
-for my $o (@stage3options) {
-    my ($value,$key) = split /\s/smx ,$o;
+#for my $o (@stage1options) {
+#    my ($key,$value) = split /[:]\s/smx, $o;
+#    $returndb->{$key} = $value || q{};
+#}
+
+map {
+    my ($value,$key) = split /\s/smx ,$_;
     if ( ( $key eq 'fps' ) and ( $value =~ /^\d+.\d+/smx ) ) { $value = sprintf '%.f' , $value; } # handbrake accept only ganzzahl as frame
     $returndb->{$key} = $value || q{};
-}
+} @stage3options;
+
+#for my $o (@stage3options) {
+#    my ($value,$key) = split /\s/smx ,$o;
+#    if ( ( $key eq 'fps' ) and ( $value =~ /^\d+.\d+/smx ) ) { $value = sprintf '%.f' , $value; } # handbrake accept only ganzzahl as frame
+#    $returndb->{$key} = $value || q{};
+#}
 
 
 
@@ -751,9 +805,14 @@ my $returnline = 1;
 my $cpuinfo = \$self->_runexternal({line=>'/bin/cat /proc/cpuinfo',debug=>${$debug}});
 
 
-for my $c (@{${$cpuinfo}->{'returndata'}} ) {
- if ( $c =~ /^processor(?:\s+|\t+)[:]/smx ) { $cpucount++; };
-}
+#for my $c (@{${$cpuinfo}->{'returndata'}} ) {
+# if ( $c =~ /^processor(?:\s+|\t+)[:]/smx ) { $cpucount++; };
+#}
+
+map {
+ if ( $_ =~ /^processor(?:\s+|\t+)[:]/smx ) { $cpucount++; };
+} @{${$cpuinfo}->{'returndata'}};
+
 # if just one cpu exist
 if ( $cpucount == 1 ) { return ($returnline); }
 
@@ -1044,8 +1103,13 @@ my ($org_top,$org_bottom,$org_left,$org_right ) = split /\//smx,${$oldcrop};
 # set both crops ( per top/ bottom and Left/Rigth) on larger crop found by handbrake, to prevent crop is only left and not right side for example
 foreach my $a ( 0..1 ) {$new_crop[$a] = $org_top > $org_bottom ? $org_top : $org_bottom ;}
 foreach my $b ( 2..DREI ) {$new_crop[$b] = $org_left > $org_right ? $org_left : $org_right ;}
+
 # rounding by modulo 8( sprintf "%.0f" , ( $probe_memory_ammount_Mbyte / 25 )) * 25 ;
-foreach my $c ( @new_crop ) { $c = ( sprintf '%.0f' , ( ( $c / ACHT ) * ACHT ) ) } ;
+#foreach my $c ( @new_crop ) { $c = ( sprintf '%.0f' , ( ( $c / ACHT ) * ACHT ) ) } ;
+map {
+	$_ = ( sprintf '%.0f' , ( ( $_ / ACHT ) * ACHT ) );
+} @new_crop;
+
 $self->message({msg=>"crop old : $org_top/$org_bottom/$org_left/$org_right crop new : @new_crop",verbose=>'v',}) ;
 my $param_crop = "$new_crop[0]:$new_crop[1]:$new_crop[2]:$new_crop[DREI]" ;
 undef @new_crop;
