@@ -90,6 +90,8 @@ if ( ${$lines}->{'returncode'} !~ /[_]done$/smx ) {
     s/#.*//smx;     # no comments
     s/^\s+//smx;    # no leading white
     s/\s+$//smx;    # no trailing white
+    if ( $_ =~ /[`\$\\"';&]/smx ) { next ; }
+    
     if ( $_ =~ /^\#/smx ) { next; } ;
     if ( !length ) { next; } ;
     my ($key,$tmp_value) = split /\s*=(?:\s*|\t*)/smx ,$_,2;
