@@ -9,7 +9,7 @@ use English '-no_match_vars';
 use Carp;
 
 use feature qw/switch/;
-#use Data::Dumper;
+use Data::Dumper;
 use IO::Socket::INET;
 
 #use lib 'lib/';
@@ -224,91 +224,93 @@ my $wrkdir = \$args->{'dir'};
 my $dbg = \$args->{'debug'};
 my $file = \$args->{'infofile'};
 
-my $infofile = q{};
+my $infofile = "${$wrkdir}/info";
 my $rcdb = {}; # return db
 my $atrack = 0;
 my $infopath = ${$wrkdir};
 
-if ( -e "${$wrkdir}/info" ) { $infofile="${$wrkdir}/info";}
-if ( -e "${$wrkdir}/info.vdr" ) { $infofile="${$wrkdir}/info.vdr";}
 
-if ( ${$file} ) { $infofile = ${$file} ; }
+if ( ${$file} ) { $infofile = "${$wrkdir}/${$file}" ; }
 
-#if ($infofile eq q{}) { return () };
+
 
 my $content = \$self->readfile({file=>$infofile,});
+
 if ( ${$content}->{'returncode'} !~ /[_]done$/smx ) { return ('info_file_not_found') ; };
 
-foreach my $i ( @{ ${$content}->{'returndata'} } ) {
-  given ($i) {
+#foreach my $i ( @{ ${$content}->{'returndata'} } ) {
+map {
+	
+  given ($_) {
     # video
-    when ( $_ =~ /^T\s/smx ) {
+    when ( /^T\s/smx ) {
       my (undef,$title) = split /^[T]\s/smx ,$_;
       while ($title =~ /\s/smx ) {
 			$title =~ s/\s/_/smx ;
       }
       $rcdb->{'title'} = $title;
     }
-    when ( $_ =~ /^S\s/smx ) {
+    when ( /^S\s/smx ) {
       my (undef,$epi) = split /^[S]\s/smx ,$_;
       while ( $epi =~ /\s/smx ) {
  			$epi =~ s/\s/_/smx ;
  		}
  		$rcdb->{'episode'} = $epi;
  	}
-	 when ( $_ =~ /^X\s[1]\s[0](?:[1]|[5])\s/smx ) {
+	 when ( /^X\s[1]\s[0](?:[1]|[5])\s/smx ) {
       $rcdb->{'aspect'} = '4:3';
       $rcdb->{'HD'} = q{} ;
     }
-    when ( $_ =~ /^X\s[1]\s[0](?:[2]|[3]|[6]|[7])\s/smx ) {
+    when ( /^X\s[1]\s[0](?:[2]|[3]|[6]|[7])\s/smx ) {
       $rcdb->{'aspect'} = '16:9';
       $rcdb->{'HD'} = q{} ;
     }
-    when ( $_ =~ /^X\s[1]\s[0](?:[4]|[8])\s/smx ) {
+    when ( /^X\s[1]\s[0](?:[4]|[8])\s/smx ) {
       $rcdb->{'aspect'} = '>16:9';
       $rcdb->{'HD'} = q{} ;
     }
-    when ( $_ =~ /^X\s[1]\s[0](?:[9]|[D])\s/smx ) {
+    when ( /^X\s[1]\s[0](?:[9]|[D])\s/smx ) {
       $rcdb->{'aspect'} = '4:3';
       $rcdb->{'HD'} = 'true' ;
     }
-    when ( $_ =~ /^X\s[1]\s[0](?:[A]|[B]|[E]|[F])\s/smx ) {
+    when ( /^X\s[1]\s[0](?:[A]|[B]|[E]|[F])\s/smx ) {
       $rcdb->{'aspect'} = '16:9';
       $rcdb->{'HD'} = 'true' ;
     }
-    when ( $_ =~ /^X\s[1]\s(?:[0][C]|[1][0])\s/smx ) {
+    when ( /^X\s[1]\s(?:[0][C]|[1][0])\s/smx ) {
       $rcdb->{'aspect'} = '>16:9';
       $rcdb->{'HD'} = 'true' ;
     }
     # audio
-    when ( $_ =~ /^X\s[2]\s[0][1]\s/smx ) {
+    when ( /^X\s[2]\s[0][1]\s/smx ) {
       $rcdb->{"audiotrack$atrack"} = 'mono';
       $atrack++;
     }
-    when ( $_ =~ /^X\s[2]\s[0][3]\s/smx ) {
+    when ( /^X\s[2]\s[0][3]\s/smx ) {
       $rcdb->{"audiotrack$atrack"} = 'stereo';
       $atrack++;
     }
-    when ( $_ =~ /^X\s[2]\s[0][5]\s/smx ) {
+    when ( /^X\s[2]\s[0][5]\s/smx ) {
       $rcdb->{"audiotrack$atrack"} = 'dolby digital';
       $atrack++;
     }
-    when ( $_ =~ /^E\s\d+\s\d+\s\d+/smx ) {
+    when ( /^E\s\d+\s\d+\s\d+/smx ) {
       my (undef,$id,$stati,$stoti,undef,undef) = split /\s/smx , $_;
       $rcdb->{'idnr'}= $id ;
       $rcdb->{'starttime'} = $stati ;
       $rcdb->{'duration'} = $stoti ;
     }
-    when ( $_ =~ /^F\s\d{2,3}$/smx ) {
+    when ( /^F\s\d{2,3}$/smx ) {
       my (undef,$frames) = split /\s/smx , $_;
       $rcdb->{'frames'}= $frames ;
     }
-    when ( $_ =~ /^V\s\d+$/smx ) {
+    when ( /^V\s\d+$/smx ) {
       my (undef,$vps) = split /\s/smx , $_;
       $rcdb->{'vpstime'}= $vps ;
     }
   } # end given
-} # end foreach @content
+} @{ ${$content}->{'returndata'} } ; # end map / foreach @content
+
 return ($rcdb);
 }
 
@@ -324,10 +326,12 @@ my $returnline = q{};
 given (${$type}) {
   when ( /^prg$/smx ) {
     my $runexternal = \$self->_runexternal({line=>'vdr -V | grep -E vdr',debug=>${$debug},}); # eg. vdr (1.7.18/1.7.18) - The Video Disk Recorder
-    for my $v (@{ ${$runexternal}->{'returndata'}} ) {
-      if ( $v =~ /[(]1[.]7[.]/smx )  { $returnline = '1.7'; }
-      if ( $v =~ /[(]1[.]6[.]/smx )  { $returnline = '1.6'; }
-    }
+    
+	map {
+		if ( $_ =~ /[(]1[.]7[.]/smx )  { $returnline = '1.7'; }
+      if ( $_ =~ /[(]1[.]6[.]/smx )  { $returnline = '1.6'; }
+	} @{ ${$runexternal}->{'returndata'}} ;
+    
     undef $runexternal;
   }
   when ( /^file$/smx ) {
