@@ -15,7 +15,7 @@ use base qw(Exporter);
 
 @EXPORT_OK = qw(rename_and_store);
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #
 # 0.01 inital version
@@ -105,11 +105,19 @@ $self->message({msg=>"_rename_and_store | $dir | build filename $filename",v=>'v
 my $sourcefile = q{};
 my @flist = \$self->_get_files_in_dir({dir=>$dir,});
 
-foreach my $f (@flist) {
-  if (${$f} =~ /$tmpfile[.](?:mp4|m4v|mkv)/smx ) {
-    $sourcefile = ${$f};
+#foreach my $f (@flist) {
+#  if (${$f} =~ /$tmpfile[.](?:mp4|m4v|mkv)/smx ) {
+#    $sourcefile = ${$f};
+#  }
+#}
+
+map {
+  if (${$_} =~ /$tmpfile[.](?:mp4|m4v|mkv)/smx ) {
+    $sourcefile = ${$_};
   }
-}
+} @flist;
+
+
 $self->message({msg=>"_rename_and_store | sourcefile  $sourcefile",v=>'vvv',});
 
 $self->message({msg=>"_rename_and_store | copy $sourcefile to ${$dstdir}/$filename",v=>'v',});
