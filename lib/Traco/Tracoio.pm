@@ -10,7 +10,7 @@ use Cwd;
 use feature qw/switch/;
 #use File::Find;
 use File::Basename;
-#use Data::Dumper;
+use Data::Dumper;
 use File::Glob ':glob';
 use Fcntl ':flock';
 use Config;
@@ -221,6 +221,7 @@ my $p = \$args->{'pattern'};
 my $pattern = q{*};
 if ( ${$p} ) { $pattern = ${$p} ; }
 my @files ;
+
 foreach my $f (bsd_glob "${$dir}/$pattern") {
   push @files,$f;
 }
@@ -237,28 +238,19 @@ my $start_ts = q{};
 my $vdrversion = '1.7';
 my @filelist=\$self->_get_files_in_dir ({dir=>${$source_dir},});
 
-#my $l = length ${$fileno};
-#my $n = 4 - $l;
-#my $fill;
-#for my $i ( 0 .. $n ) {
-#        $fill .= '0';
-#}
-#my $vdrfile = "$fill${$fileno}";
 
 my $vdrfile = sprintf '%05d', ${$fileno};
 
 
-for my $f (@filelist) {
-
-	if (${$f} =~ /($vdrfile)[.]vdr$/smx ) {
-    $start_ts = ${$f};
-    $vdrversion = '1.6';
-  }
-  if (${$f} =~ /($vdrfile)[.]ts$/smx ) {
-    $start_ts = ${$f};
-  }
-
-}
+map {
+	if (${$_} =~ /($vdrfile)[.]vdr$/smx ) {
+   	$start_ts = ${$_};
+		$vdrversion = '1.6';
+	}
+	if (${$_} =~ /($vdrfile)[.]ts$/smx ) {
+   	$start_ts = ${$_};
+	}
+} @filelist;
 
 return ($start_ts,$vdrversion);
 }
@@ -384,20 +376,38 @@ if ( ${$files} =~ /\s/smx ) {
 
 my $opentype = '>:raw';
 
-for my $file (@infiles) {
-   if ( $file eq q{} ) { next ;};
+#for my $file (@infiles) {
+#   if ( $file eq q{} ) { next ;};
+#	if ( -e "${$dir}/$destinationfile" ) {
+#		$opentype = '>>:raw';
+#	}
+#   $self->message ({msg=>"[joinfiles]proccess ${$dir}/$file",debug=>${$dbg},v=>'vvv',});
+#    open $fh_out, $opentype , "${$dir}/$destinationfile" or croak "can't open ${$dir}/$destinationfile $ERRNO";
+#    open my $fh_in, '<:raw', "${$dir}/$file" or croak "can't open ${$dir}/$file $ERRNO";
+#    while ($copied = read $fh_in, $buffer, BUFFERSIZE) {
+#        print {$fh_out} $buffer or croak "can't write to ${$dir}/$destinationfile $ERRNO";
+#    }
+#    close $fh_in or croak $ERRNO;
+#    close $fh_out or croak $ERRNO;
+#}
+
+map {
+   if ( $_ eq q{} ) { next ;};
 	if ( -e "${$dir}/$destinationfile" ) {
 		$opentype = '>>:raw';
 	}
-    $self->message ({msg=>"[joinfiles]proccess ${$dir}/$file",debug=>${$dbg},v=>'vvv',});
+    $self->message ({msg=>"[joinfiles]proccess ${$dir}/$_",debug=>${$dbg},v=>'vvv',});
     open $fh_out, $opentype , "${$dir}/$destinationfile" or croak "can't open ${$dir}/$destinationfile $ERRNO";
-    open my $fh_in, '<:raw', "${$dir}/$file" or croak "can't open ${$dir}/$file $ERRNO";
+    open my $fh_in, '<:raw', "${$dir}/$_" or croak "can't open ${$dir}/$_ $ERRNO";
     while ($copied = read $fh_in, $buffer, BUFFERSIZE) {
         print {$fh_out} $buffer or croak "can't write to ${$dir}/$destinationfile $ERRNO";
     }
     close $fh_in or croak $ERRNO;
     close $fh_out or croak $ERRNO;
-}
+} @infiles;
+
+
+
 return ('joindone');
 } # end sub _joinfiles
 
@@ -413,13 +423,25 @@ if (${$o}) {
 }
 open my $WRITE , $options , ${$file} or croak "can't open ${$file} for writefile $ERRNO";
     flock $WRITE, LOCK_EX or croak "can't lock ${$file} for writefile $ERRNO";
-    foreach my $l (@content) {
+    
+    map {
     	if ( $CA[DREI] !~ /writelog$/smx ) {
-      	print {$WRITE} "$l\n" or croak "can't write to ${$file} for writefile $ERRNO";
+      	print {$WRITE} "$_\n" or croak "can't write to ${$file} for writefile $ERRNO";
       } else {
-        	print {$WRITE} $l or croak "can't write to ${$file} for writefile $ERRNO";
+        	print {$WRITE} $_ or croak "can't write to ${$file} for writefile $ERRNO";
       }
-    }
+    } @content;
+    
+    
+#    foreach my $l (@content) {
+#    	if ( $CA[DREI] !~ /writelog$/smx ) {
+#      	print {$WRITE} "$l\n" or croak "can't write to ${$file} for writefile $ERRNO";
+#      } else {
+#        	print {$WRITE} $l or croak "can't write to ${$file} for writefile $ERRNO";
+#      }
+#    }
+    
+    
     flock $WRITE, LOCK_UN or croak "can't close ${$file} for writefile $ERRNO";
 close $WRITE or croak $ERRNO;
 return ('writedone');
@@ -428,6 +450,9 @@ return ('writedone');
 sub readfile {
 my ($self,$args) = @_;
 my $file = \$args->{'file'};
+
+#print Dumper $args;
+
 #my @CA = caller 1;
 #print Dumper $CA[3];
 #print Dumper $args;
