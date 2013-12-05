@@ -22,7 +22,7 @@ use File::Basename ;
 use lib 'lib/';
 use Traco::Traco 0.24;
 use Traco::Config ;
-#use Data::Dumper ;
+use Data::Dumper ;
 
 # now feature from 5.10
 use feature qw/switch/;
@@ -123,7 +123,7 @@ my $indirrc = \$traco->preparepath({path=>$tracoenv->{'Indir'},});
 my $outdirrc = \$traco->preparepath({path=>$tracoenv->{'Outdir'},});
 
 if ( ${$indirrc} ) {
-  $tracoenv->{'indir'} = ${$indirrc};
+  $tracoenv->{'Indir'} = ${$indirrc};
 } else {
   $traco->message({msg=>"$tracoenv->{'Indir'} not found or is not a Directory, check please...",}) ;
   _leave () ;
@@ -134,6 +134,10 @@ if ( ${$outdirrc} ) {
   $traco->message({msg=>"$tracoenv->{'Outdir'} not found or is not a Directory, check please...",}) ;
   _leave () ;
 }
+
+$tracoenv->{'infs'} = \$traco->getfilesystem({dir => $tracoenv->{'Indir'} });
+#$tracoenv->{'outfs'} = \$traco->getfilesystem({dir => $tracoenv->{'Outdir'} });
+
 
 $traco->message ({msg=>"debug $tracoenv->{'debug_flag'}",v=>'vvv'},);
 
@@ -204,7 +208,7 @@ sub is_running {
 my @plist = $traco->_runexternal({line=>'ps -ax',});
 my @tracop = grep { /tracosrv/smx } @plist;
 if ($#tracop >= 0 ) {
-  print {*STDOUT} "server allready running\n" or croak $ERRNO;
+  print {*STDOUT} "server already running\n" or croak $ERRNO;
   exit 1;
 }
 undef @plist;
@@ -220,20 +224,21 @@ local $SIG{CHLD} = 'IGNORE' ;
 
 # find info or info.vdr
 # reset on every new main loop
-my @videolist = \$traco->getfilelist({dir=>$tracoenv->{'indir'},
+my @videolist = \$traco->getfilelist({dir=>$tracoenv->{'Indir'},
 					      skiplinks=>'true',
 					      debug=>$tracoenv->{'debug_getfilelist'},
+					      fs => ${$tracoenv->{'infs'}},
 					      });
 #
 
 my @videoqueue = ();
 
-# check for vdrtranscode.xml if exist and get status from this video
+# check for traco.xml if exist and get status from this video
 for my $v (@videolist) {
 #  my $videofile = basename(${$v});
   my $videopath = dirname (${$v});
   $traco->message ({msg=>"proccess queue item $videopath",v=>'vvv',});
-  my $indir = $tracoenv->{'indir'};
+  my $indir = $tracoenv->{'Indir'};
   if ( $videopath =~ /^($indir)$/smx ) { next ; }
   # check again if directory exist , maybe delete by osd
   if ( not ( -d $videopath ) ) { next ; };
@@ -289,7 +294,7 @@ foreach my $st (@videoqueue) {
     }
     # if vdrtranscode is proccessing a transcode , next
     when ( /^proccessing$/smx ) { last; }
-    # job have multiple recording files and vdr ( vdrtranscodeadm ) prepare the job
+    # job have multiple recording files and vdr ( tracoadm ) prepare the job
     when ( /^renameaftertranscode$/smx) {
       my $renamerc = \$traco->rename_and_store({dir=>$dir,
 						filenameformat=>$tracoenv->{'filenameformat'},
@@ -311,6 +316,10 @@ foreach my $st (@videoqueue) {
     last;
     }
     when ( /^joinfiles$/smx ) {
+      my $vdrfiles = \$traco->chkvdrfiles({dir=>$dir,vdrversion=>$tracoenv->{'vdrversion'},});
+      if ( ${$vdrfiles}->{marks} eq 'missing' ) { next ; }   
+    
+    
       my $files = \$traco->getfromxml({file=>"$dir/$tracoenv->{'traco_xml'}",
 					      field=>'files',
 					      debug=>$tracoenv->{'debug_flag'},
