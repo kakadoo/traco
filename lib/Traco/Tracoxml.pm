@@ -9,7 +9,7 @@ use Carp;
 use IPC::Open3 'open3';
 use feature qw/switch/;
 use File::Basename;
-#use Data::Dumper;
+use Data::Dumper;
 use constant {SECHSNULLNULL => '600', NEUN => '9',};
 
 use Sys::Syslog qw/:DEFAULT setlogsock/;
@@ -50,6 +50,7 @@ my $ts = \$args->{'ts'};
 
 $self->message ({msg=>"${$xml} not exist , create in ${$videopath}",v=>'v',});
 my $vdrinfocontent = \$self->parsevdrinfo({dir=>${$videopath},debug=>${$dbg},});
+
 if ( ${$vdrinfocontent} ) {
   my $rc = \$self->_createxmlfile({dir=>${$videopath},
 				    debug=>${$dbg},
@@ -218,7 +219,7 @@ if ($mytime < $endtime ) { return ('recording') ; };
 
 # write first status
 push @writecontent,'<status>offline</status>';
-# open bock <vdrinfo>
+# open block <vdrinfo>
 push @writecontent,'<vdrinfo>';
 if ( ${$vdrinfo}->{'aspect'} ) { push @writecontent,"<aspect>${$vdrinfo}->{'aspect'}</aspect>"; }
 if ( ${$vdrinfo}->{'title'} ) { push @writecontent,"<title>${$vdrinfo}->{'title'}</title>"; }
@@ -248,18 +249,20 @@ if ( $#tsfiles < 0 ) {
 }
 
 if ($#tsfiles >= 0 ) {
-  for my $ts (@tsfiles) {
-    my $finame = basename $ts;
+
+  map {
+    my $finame = basename $_;
     $streamfiles = "$streamfiles $finame";
-  }
- }
+  } @tsfiles;
+}
+ 
 $streamfiles =~ s/^\s//smx ; # remove traling space
 # add to writecontent in xml style
 if ($streamfiles) { push @writecontent,"<files>$streamfiles</files>"; }
 #
-for my $w (@writecontent) {
-   $self->message({msg=>"_createxmlfile | write | $w" , debug=>${$dbg},v=>'vvv', });
-}
+map {
+   $self->message({msg=>"_createxmlfile | write | $_" , debug=>${$dbg},v=>'vvv', });
+} @writecontent;
 
 my $wrrc = \$self->writefile({file=>"${$xmlpath}/${$xmlfile}",content=>\@writecontent,debug=>${$dbg}});
 
@@ -282,15 +285,16 @@ my $p=\$self->getprofile({profile=>${$profile},debug=>${$dbg},});
 my @keys = split /\s/smx , ${$profiledefaults}->{'keys'};
 if ( ${$p}->{'shortname'} ) {
   push @writecontent,"<profile name=\"${$p}->{'shortname'}\">";
-  for my $k (@keys) {
+#  print Dumper @keys;
+  for my $k ( @keys ) {
       if ( not ( ${$p}->{$k} ) ) { next ; }
-      if ($k =~ /^shortname$/smx ) { next ; }
+      if ( $k =~ /^shortname$/smx ) { next ; }
       if ( ( $k =~ /^quality$/smx ) and ( ${$p}->{$k} =~ /(?:UVHQ|VHQ|HQ|MQ|LQ|VLQ)/smx ) )  {
 	push @writecontent,"<$k>${$profiledefaults}->{$k}->{${$p}->{'quality'}}</$k>";
       } else {
 	push @writecontent,"<$k>${$p}->{$k}</$k>";
       }
-    }
+    } ;
   }
 push @writecontent,'</profile>';
 
@@ -320,28 +324,29 @@ if ( ${$content}->{'returncode'} !~ /[_]done$/smx ) { return ('missing_xml_file_
 
 
 if ( ${$block} ) {
-  for my $l (@{ ${$content}->{'returndata'} } ) {
-    if ($l =~ /\<(${$block})\>/smx .. $l =~ /[<]\/(${$block})[>]/smx ) {
+
+  map {
+    if ($_ =~ /\<(${$block})\>/smx .. $_ =~ /[<]\/(${$block})[>]/smx ) {
     my ($key,$value);
-	if ( $l =~ /\<(${$field})\>/smx ) {
-	  ($key,$value)= $l =~ /[<](\w+)[>](.+)[<]\/\w+[>]/smx;
+	if ( $_ =~ /\<(${$field})\>/smx ) {
+	  ($key,$value) = $_ =~ /[<](\w+)[>](.+)[<]\/\w+[>]/smx;
 	}
 	if ($key) {
 	  $returnline->{$key} = $value;
 	}
     }
-  }
+  } @{ ${$content}->{'returndata'} } ;
   return ($returnline);
 }
 
 given ( ${$field} ) {
   when ( /^ALL$/smx ) {
-    for my $l (@{ ${$content}->{'returndata'} } ) {
-      my ($key,$value)= $l =~ /[<](\w+)[>](.+)[<]\/\w+[>]/smx;
+    map {
+      my ($key,$value)= $_ =~ /[<](\w+)[>](.+)[<]\/\w+[>]/smx;
       if ($key) {
-	$returnline->{$key} = $value;
+			$returnline->{$key} = $value;
       }
-    }
+    } @{ ${$content}->{'returndata'} };
   }
   default {
     my @result = grep { /\<(${$field})\>/smx } @{ ${$content}->{'returndata'} } ;
