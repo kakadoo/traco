@@ -3,4 +3,6 @@
 *wenn im namen ein / ist wir die datei nicht umbenannt ( renameaftertranscode ) -> workaraound title in der vdrtranscode.xml aendern ( fixed 6.10.2013 )
 *new central Config.pm ( start beta 10.2013 ) config file are only for override default settings.
 *all new files , created by traco , called traco.(ts,xml,lck) etc you can change this by option in config 
-
+*add a flag to delete the traco.ts file after finish of the transcode proccess
+*use the cut vdr cut file %xxxxx.ts
+ 
