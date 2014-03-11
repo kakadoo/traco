@@ -93,59 +93,64 @@ my $xml = \$args->{'xml'};
 my $xmlfile = ${$xml};
 my $idxfile = \$args->{'indexfile'};
 
-if ( -e ${$target_ts} ) { return ("combine_ts: target_exist_in_${$target_ts}") };
-if ( not ( ${$vdrv} ) ) { return ('combine_ts: missing_vdr_version'); };
+if ( -e "${$source_ts}/${$target_ts}" ) { return ("[combine_ts]target_ts exist ${$source_ts}/${$target_ts}") };
+if ( not ( ${$vdrv} ) ) { return ('[combine_ts]missing_vdrversion_option'); };
+if ( not ( ${$idxfile} ) ) { return ('[combine_ts]missing_indexfile_option'); };
 
 my $fps=\$self->_getfps({fpstype=>${$fpstype},dir=>${$source_ts},debug=>${$dbg},handbrake=>${$hb},nice=>${$nice},xml=>${$xml},});
+$self->message({msg=>"[combine_ts]got ${$fps} from _getfps",debug=>${$dbg},}) ;
 
 my $start = {};
 my $stop = {};
 #
 my $vdrversion = ${$vdrv} ;
-my $indexfile = ${$idxfile};
+my $indexfile = "${$source_ts}/${$idxfile}";
 
-if ( $indexfile eq 'missing' ) {
- return ('combine_ts: indexfile not found');
-}
+#if ( $indexfile eq 'missing' ) {
+# return ('combine_ts: indexfile not found');
+#}
 
-$self->message({msg=>"combine_ts: TS Files in ${$source_ts}",}) ;
-$self->message({msg=>'combine_ts: get Byte Positions based on marks',debug=>${$dbg},v=>'v',}) ;
+$self->message({msg=>"[combine_ts]TS Files in ${$source_ts}",}) ;
+$self->message({msg=>'[combine_ts]get Byte Positions based on marks',debug=>${$dbg},v=>'v',}) ;
 
 my $ref_marks = \$self->parsevdrmarks({dir=>$source_ts_dir,fps=>${$fps},debug=>${$dbg},marksfile=>${$marksfile},});
 
-#$self->changexmlfile({file=>$xmlfile,action=>'add',field=>'totalframes',content=>${$ref_marks}->{'totalframes'},debug=>${$dbg},});
 
 my $cutcount = ${$ref_marks}->{'cutcount'}-1;
 
 
-foreach my $a (0 .. $cutcount) {
+foreach my $cp (0 .. $cutcount) {
 
-my $startframe = ${$ref_marks}->{"start_fps$a"};
-my $stopframe = ${$ref_marks}->{"stop_fps$a"};
-my ($sta,$staf) = \$self->_getoffset({frame=>$startframe,index=>$indexfile,vdrversion=>$vdrversion,});
-my ($sto,$stof) = \$self->_getoffset({frame=>$stopframe,index=>$indexfile,vdrversion=>$vdrversion,});
-$start->{"pos$a"} = ${$sta};
-$start->{"file$a"} = ${$staf};
+my $startframe = ${$ref_marks}->{"start_fps$cp"};
+my $stopframe = ${$ref_marks}->{"stop_fps$cp"};
+my ($sta,$staf) = \$self->_getoffset({frame=>$startframe,index=>$indexfile,vdrversion=>$vdrversion,debug=>${$dbg},});
+my ($sto,$stof) = \$self->_getoffset({frame=>$stopframe,index=>$indexfile,vdrversion=>$vdrversion,debug=>${$dbg},});
+$start->{"pos$cp"} = ${$sta};
+$start->{"file$cp"} = ${$staf};
 
-$stop->{"pos$a"} = ${$sto};
-$stop->{"file$a"} = ${$stof};
+$stop->{"pos$cp"} = ${$sto};
+$stop->{"file$cp"} = ${$stof};
 
-my $t=${$ref_marks}->{"start_time$a"} ;
-$self->message({msg=>"||cut -> $a time in sek -> $t || frame -> $startframe || byteposition start -> ${$sta} in File ${$staf} stop -> ${$sto} in File ${$stof}",debug=>${$dbg},v=>'vvv',}) ;
+my $t=${$ref_marks}->{"start_time$cp"} ;
+$self->message({msg=>"[combine_ts]cut -> $cp time in sek -> $t || frame -> $startframe || byteposition start -> ${$sta} in File ${$staf} stop -> ${$sto} in File ${$stof}",debug=>${$dbg},}) ;
 }
 
 my $wrkfile = q{};
 for my $a (0 .. $cutcount ) {
 my $rc = q{};
-$self->message ({msg=>"cut $a in .ts file from vdr cutlist...",debug=>${$dbg},v=>'v',}) ;
 
 my $filea = $start->{"file$a"};
+my $startfile = $start->{"file$a"};
+
+
 my $fileb = $stop->{"file$a"};
 
-if ( $filea == $fileb ) {
-  ($wrkfile,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$start->{"file$a"},});
-  $self->message ({msg=>"proccess ${$wrkfile} ***$filea == $fileb ",debug=>${$dbg},v=>'vvv',}) ;
-  $rc = \$self->_cutfile ({sourcedir=>$source_ts_dir,
+
+if ( $startfile == $fileb ) {
+  ($wrkfile,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$startfile,});
+  
+  $self->message ({msg=>"[combine_ts]proccess ${$wrkfile} ***$startfile == $fileb ",debug=>${$dbg},v=>'vvv',}) ;
+  $rc = \$self->_cutfile ({dir=>$source_ts_dir,
     target=>${$target_ts},
     startpos=>$start->{"pos$a"},
     stoppos=>$stop->{"pos$a"},
@@ -155,10 +160,12 @@ if ( $filea == $fileb ) {
   $wrkfile = q{};
 } elsif ( $filea != $fileb ) {
   # cutpart one
-  ($wrkfile,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$start->{"file$a"},});
+  
+  ($wrkfile,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$startfile,});
+  $self->message ({msg=>"[combine_ts]proccess ${$wrkfile} ***$ startfile != $fileb ",debug=>${$dbg},}) ;
+ 
   my $bytesizefile = -s ${$wrkfile};
-  $self->message ({msg=>"proccess ${$wrkfile} ***$filea != $fileb ",debug=>${$dbg},v=>'vvv',}) ;
-  my $rc1 = \$self->_cutfile ({sourcedir=>$source_ts_dir,
+  my $rc1 = \$self->_cutfile ({dir=>$source_ts_dir,
     target=>${$target_ts},
     startpos=>$start->{"pos$a"},
     stoppos=>$bytesizefile,
@@ -166,13 +173,14 @@ if ( $filea == $fileb ) {
     debug=>${$dbg},
  });
   $wrkfile = q{};
- # logik wenn fileb nicht die direkte folgen nummer ist sprich 1 != 5 z.b
+ # logic wenn fileb nicht die direkte folgen nummer ist sprich 1 != 5 z.b
  if (${$rc1} eq '_cutfile_done') {
+ 
   if ( ( $filea + 1 ) == $fileb ) {
   # cutpart two
     ($wrkfile,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$stop->{"file$a"},});
-    $self->message ({msg=>"proccess ${$wrkfile} ***$filea+1 == $fileb ",debug=>${$dbg},v=>'vvv',}) ;
-    $rc = \$self->_cutfile ({sourcedir=>$source_ts_dir,
+    $self->message ({msg=>"[combine_ts]proccess ${$wrkfile} ***$filea+1 == $fileb ",debug=>${$dbg},}) ;
+    $rc = \$self->_cutfile ({dir=>$source_ts_dir,
       target=>${$target_ts},
       startpos=>'0',
       stoppos=>$stop->{"pos$a"},
@@ -188,20 +196,23 @@ if ( $filea == $fileb ) {
       while ( $lastmergefile >= $filecount ) {
 	my ($jf,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$filecount,});
 	my $filename =  basename ${$jf};
-	$tojoinfiles="$tojoinfiles $filename";
+	$tojoinfiles .= " $filename";
+	$tojoinfiles =~ s/^\s//smx ;
+	
+	#print Dumper $tojoinfiles;
 	$filecount++;
       }
-      $self->message ({msg=>"call _joinfiles dir = $source_ts_dir files = $tojoinfiles" ,debug=>${$dbg},v=>'vvv',}) ;
-      my $joinrc = \$self->_joinfiles({dir=>$source_ts_dir,files=>$tojoinfiles,destination=>${$target_ts}});
-      $self->message ({msg=>"_joinfiles return = ${$joinrc}" ,debug=>${$dbg},v=>'vvv',}) ;
+      $self->message ({msg=>"[combine_ts]call _joinfiles dir = $source_ts_dir files = $tojoinfiles" ,debug=>${$dbg},}) ;
+      my $joinrc = \$self->_joinfiles({dir=>$source_ts_dir,files=>$tojoinfiles,destination=>${$target_ts},debug=>${$dbg},});
+      $self->message ({msg=>"[combine_ts]_joinfiles call return = ${$joinrc}" ,debug=>${$dbg},}) ;
       ($wrkfile,undef) = \$self->_get_filename_by_cutfilenumber({dir=>$source_ts_dir,fileno=>$fileb,});
-      $rc = \$self->_cutfile ({sourcedir=>$source_ts_dir,
-	target=>${$target_ts},
-	startpos=>'0',
-	stoppos=>$stop->{"pos$a"},
-	file=>${$wrkfile},
-	debug=>${$dbg},
-      });
+      $rc = \$self->_cutfile ({dir=>$source_ts_dir,
+											target=>${$target_ts},
+											startpos=>'0',
+											stoppos=>$stop->{"pos$a"},
+											file=>${$wrkfile},
+											debug=>${$dbg},
+      								});
     $wrkfile = q{};
   }
 }
@@ -211,8 +222,7 @@ if (${$rc} eq '_cutfile_done') { $a++ ; }
 
 } # end while
 
-return ('combine_ts_done');
-
+return ('combine_ts_done')
 }
 sub _get_files_in_dir {
 my ( $self,$args ) = @_;
@@ -257,8 +267,8 @@ return ($start_ts,$vdrversion);
 
 sub _cutfile {
 my ($self,$args) = @_;
-#return ('_cutfile_done'); # for testing enable
-my $source_ts_dir = \$args->{'sourcedir'} ;
+#print Dumper $args;
+my $dir = \$args->{'dir'} ;
 my $target = \$args->{'target'} ;
 my $start = \$args->{'startpos'};
 my $stop = \$args->{'stoppos'};
@@ -267,32 +277,36 @@ my $dbg=\$args->{'debug'};
 my $buffer;
 my $cont;
 #
-$self->message ({msg=>"cut file ${$file} ( start = ${$start} / stop = ${$stop} )",debug=>${$dbg},v=>'vvv',}) ;
-#
-open my $TOFH, '>>:raw', ${$target} or croak $self->message ({msg=>"cannot open ${$target} for writing ... $ERRNO",}) ;
+my $writetype='>:raw';
 
-open my $FH , '<:raw', ${$file} or croak $self->message ({msg=>"can't open ${$file} ... $ERRNO",}) ;
+if ( -e "${$dir}/${$target}" ) { $writetype='>>:raw'; }
+ 
+$self->message ({msg=>"[_cutfile]cut in ${$dir} file ${$file} ( start = ${$start} / stop = ${$stop} )",debug=>${$dbg},}) ;
+#
+open my $TOFH, $writetype , "${$dir}/${$target}" or croak $self->message ({msg=>"[_cutfile] cannot open ${$dir}/${$target} for writing ... $ERRNO",}) ;
+
+open my $FH , '<:raw', ${$file} or croak $self->message ({msg=>"[_cutfile] can't open ${$file} ... $ERRNO",}) ;
        seek $FH,${$start},0;
        while ($cont = read $FH, $buffer, BUFFERSIZE ) {
         my $readpos = tell $FH;
         if ($readpos == ${$stop} ) { last ; }
 	if ($readpos > ${$stop} ) {
 	  my $diff = $readpos - ${$stop};
-	  $self->message({msg=>"cutfiles | write | bytepos $readpos stop ${$stop} diff $diff ",v=>'vvv',debug=>${$dbg},});
+	  $self->message({msg=>"[_cutfile]write | bytepos $readpos stop ${$stop} diff $diff ",debug=>${$dbg},});
 	  use bytes;
 	  my $newbuffer = bytes::substr $buffer,0,-$diff;
 	  my $newbufsize = bytes::length $newbuffer;
 	  no bytes;
-	  $self->message({msg=>"cutfiles | write last $newbufsize bytes",v=>'vvv',debug=>${$dbg},});
-          print {$TOFH} $newbuffer or croak "can't write to ${$target} $ERRNO";
+	  $self->message({msg=>"[_cutfile]write last $newbufsize bytes",debug=>${$dbg},});
+          print {$TOFH} $newbuffer or croak "[_cutfile]can't write to ${$dir}/${$target} $ERRNO";
 	  last ;
 	} else {
-	  print {$TOFH} $buffer or croak "can't write to ${$target} $ERRNO";
+	  print {$TOFH} $buffer or croak "[_cutfile]can't write to ${$dir}/${$target} $ERRNO";
 	}
       }
- close $FH or croak $self->message({msg=>"can´t close ${$file} $ERRNO",});
- close $TOFH or croak $self->message({msg=>"can´t close ${$target} $ERRNO",}) ;
- $self->message ({msg=>"cut file ${$file} proccessed",debug=>${$dbg},v=>'v',}) ;
+ close $FH or croak $self->message({msg=>"[_cutfile]can´t close ${$file} $ERRNO",});
+ close $TOFH or croak $self->message({msg=>"[_cutfile]can´t close ${$dir}/${$target} $ERRNO",}) ;
+ $self->message ({msg=>"[_cutfile]cut file ${$file} proccessed",debug=>${$dbg},}) ;
 return ('_cutfile_done');
 }
 
@@ -300,6 +314,7 @@ return ('_cutfile_done');
 sub _getoffset {
 my ($self,$args) = @_;
 my $f = \$args->{'frame'};
+my $dbg = \$args->{'debug'};
 my $frame = ${$f}-1;
 my $index = \$args->{'index'};
 my $startpos = ACHT * $frame ;
@@ -314,6 +329,7 @@ if ($defaultversion =~ /^1[.]6$/smx ) {
 }
 
 if ( not ( ${$index} ) ) { return ('index not found in _getoffset'); }
+
 my ($byteoffset,$byteoffset2,$filenumber,$frametype);
 
 my $buffer = \$self->_readindex({index=>${$index},frame=>$startpos,});
@@ -321,13 +337,6 @@ my $buffer = \$self->_readindex({index=>${$index},frame=>$startpos,});
 
 if ( ( $platform =~ /i486/smx ) and ( $defaultversion =~ /^1[.]7$/smx ) ) {
  ($byteoffset,$byteoffset2,$frametype,$filenumber,undef) = unpack 'iccS', ${$buffer}; # lssLL alt
-#print "offset $byteoffset\n";
-#print "offset1 $byteoffset1\n";
-#print "offset2 $byteoffset2\n";
-#print "frametype $frametype\n";
-#print "fileno $filenumber\n";
-#my $test += 32*$byteoffset2;
-#print "$test\n";
   if ($byteoffset2 > 0 ) {
     use bigint;
     $byteoffset += DREIZWEI * $byteoffset2;
@@ -336,6 +345,13 @@ if ( ( $platform =~ /i486/smx ) and ( $defaultversion =~ /^1[.]7$/smx ) ) {
 } else {
   ($byteoffset,$frametype,$filenumber,undef) = unpack $defaultunpack, ${$buffer};
 }
+
+ if ( ${$dbg} ) {
+		print "offset $byteoffset\n";
+		print "frametype $frametype\n"; 
+		print "fileno $filenumber\n";
+}
+
 
 return ($byteoffset,$filenumber);
 }
@@ -355,6 +371,7 @@ return ($buffer);
 }
 sub _joinfiles {
 my ($self,$args) = @_;
+#print Dumper $args;
 my $dir = \$args->{'dir'};
 my $dbg = \$args->{'debug'};
 my $files = \$args->{'files'};
@@ -362,7 +379,6 @@ my $destfile = \$args->{'destination'};
 
 if ( ! $args->{'destination'} ) { return '_joinfiles missing destination'};
 
-my $destinationfile = ${$destfile};
 
 my $buffer;
 my $copied;
@@ -376,35 +392,21 @@ if ( ${$files} =~ /\s/smx ) {
 
 my $opentype = '>:raw';
 
-#for my $file (@infiles) {
-#   if ( $file eq q{} ) { next ;};
-#	if ( -e "${$dir}/$destinationfile" ) {
-#		$opentype = '>>:raw';
-#	}
-#   $self->message ({msg=>"[joinfiles]proccess ${$dir}/$file",debug=>${$dbg},v=>'vvv',});
-#    open $fh_out, $opentype , "${$dir}/$destinationfile" or croak "can't open ${$dir}/$destinationfile $ERRNO";
-#    open my $fh_in, '<:raw', "${$dir}/$file" or croak "can't open ${$dir}/$file $ERRNO";
-#    while ($copied = read $fh_in, $buffer, BUFFERSIZE) {
-#        print {$fh_out} $buffer or croak "can't write to ${$dir}/$destinationfile $ERRNO";
-#    }
-#    close $fh_in or croak $ERRNO;
-#    close $fh_out or croak $ERRNO;
-#}
+	
 
-map {
+for ( @infiles ) {
+#	print Dumper $_;
    if ( $_ eq q{} ) { next ;};
-	if ( -e "${$dir}/$destinationfile" ) {
-		$opentype = '>>:raw';
-	}
-    $self->message ({msg=>"[joinfiles]proccess ${$dir}/$_",debug=>${$dbg},v=>'vvv',});
-    open $fh_out, $opentype , "${$dir}/$destinationfile" or croak "can't open ${$dir}/$destinationfile $ERRNO";
-    open my $fh_in, '<:raw', "${$dir}/$_" or croak "can't open ${$dir}/$_ $ERRNO";
+	if ( -e "${$dir}/${$destfile}" ) { $opentype = '>>:raw' ; }
+    $self->message ({msg=>"[joinfiles]proccess ${$dir}/$_",debug=>${$dbg},});
+    open $fh_out, $opentype , "${$dir}/${$destfile}" or croak "[_JOINFILES]can't open destination ${$dir}/${$destfile} $ERRNO";
+    open my $fh_in, '<:raw', "${$dir}/$_" or croak "[_JOINFILES]can't open ${$dir}/$_ $ERRNO";
     while ($copied = read $fh_in, $buffer, BUFFERSIZE) {
-        print {$fh_out} $buffer or croak "can't write to ${$dir}/$destinationfile $ERRNO";
+        print {$fh_out} $buffer or croak "[_JOINFILES]can't write to ${$dir}/${$destfile} $ERRNO";
     }
     close $fh_in or croak $ERRNO;
     close $fh_out or croak $ERRNO;
-} @infiles;
+};
 
 
 
