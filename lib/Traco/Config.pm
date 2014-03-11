@@ -40,6 +40,7 @@ sub new {
 	
 # set default profile 
 	$config -> {'defaultprofile'} = 'SD';
+	$config -> {'defaultHDprofile'} = 'smallHD';
 # nice default
 	$config -> {'nice'} = '20';
 	$config -> {'verbose_flag'} = q{};
