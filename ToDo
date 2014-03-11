@@ -5,4 +5,6 @@
 *all new files , created by traco , called traco.(ts,xml,lck) etc you can change this by option in config 
 *add a flag to delete the traco.ts file after finish of the transcode proccess
 *use the cut vdr cut file %xxxxx.ts
+*seperate default HD profile setting , if record is HD the xml created with an default HD profile(start 2014/02)
+
  
