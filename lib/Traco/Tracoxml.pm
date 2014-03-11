@@ -44,6 +44,7 @@ my ($self,$args) = @_;
 my $videopath=\$args->{'dir'};
 my $dbg=\$args->{'debug'};
 my $profile=\$args->{'profile'};
+my $profileHD=\$args->{'profileHD'};
 my $returnline = q{};
 my $xml = \$args->{'xml'};
 my $ts = \$args->{'ts'};
@@ -51,11 +52,14 @@ my $ts = \$args->{'ts'};
 $self->message ({msg=>"${$xml} not exist , create in ${$videopath}",v=>'v',});
 my $vdrinfocontent = \$self->parsevdrinfo({dir=>${$videopath},debug=>${$dbg},});
 
+my $useprofile = ${$profile};
+if ( ${$vdrinfocontent}->{frames} > 25 ) { $useprofile = ${$profileHD} ; }
+
 if ( ${$vdrinfocontent} ) {
   my $rc = \$self->_createxmlfile({dir=>${$videopath},
 				    debug=>${$dbg},
 				    vdrinfo=>${$vdrinfocontent},
-				    profile=>${$profile},
+				    profile=>$useprofile,
 				    xml=>${$xml},
 				    ts=>${$ts},
 				    });
