@@ -120,22 +120,22 @@ my ($self,$args) = @_;
 my $dir = \$args->{dir};
 my $vdrversion = \$args->{vdrversion};
 
-my $vdr_marks = "${$dir}/marks";
-my $vdr_info = "${$dir}/info";
-my $vdr_index = "${$dir}/index" ;
+my $vdr_marks = 'marks';
+my $vdr_info = 'info';
+my $vdr_index = 'index' ;
 
 if ( ${$vdrversion} =~ /^1[.](?:[3456])$/smx ) {
-	$vdr_info="${$dir}/info.vdr";
-	$vdr_marks="${$dir}/marks.vdr";
-	$vdr_index="${$dir}index.vdr";
+	$vdr_info='info.vdr';
+	$vdr_marks='marks.vdr';
+	$vdr_index='index.vdr';
 }
 
 
 my $returnvar = { marks => $vdr_marks, info => $vdr_info, index => $vdr_index, };
 
-if ( ! -e $vdr_marks ) { $returnvar->{'marks'} = 'missing'; }
-if ( ! -e $vdr_info ) { $returnvar->{'info'} = 'missing'; }
-if ( ! -e $vdr_index ) { $returnvar->{'index'} = 'missing'; }
+if ( ! -e "${$dir}/$vdr_marks" ) { $returnvar->{'marks'} = 'missing'; }
+if ( ! -e "${$dir}/$vdr_info" ) { $returnvar->{'info'} = 'missing'; }
+if ( ! -e "${$dir}/$vdr_index" ) { $returnvar->{'index'} = 'missing'; }
 
 #print Dumper $returnvar;
 return $returnvar;
@@ -154,7 +154,7 @@ my $duration = \$args->{'duration'};
 my $marksfile = \$args->{'marksfile'};
 my $rcdb = {}; # return db
 
-my $readfile = \$self->readfile({file=>${$marksfile},});
+my $readfile = \$self->readfile({file=>"${$markspath}/${$marksfile}",});
 
 if ( ${$readfile}->{'returncode'} =~ /[_]done$/smx ) {
 # how may cuts availble
