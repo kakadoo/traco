@@ -167,12 +167,12 @@ sub handle_configfile {
 my @opts = @_;
 my @configfileoption = grep { /[-]c/smx } @opts;
 if ( $#configfileoption >= 0 ) {
-  for my $o (0 .. $#opts) {
+  for my $o (0 .. $#opts ) {
     if ( $opts[$o] =~ /^[-]c$/smx ) {
       my $a = $o+1;
       $admenv->{'configfile'} = $opts[$a];
     }
-  }
+  } 
 }
 return ('handle_configfile_done');
 }
@@ -216,9 +216,9 @@ return ('leave_done');
 
 sub show_profiles {
  my @prof = split /\s/smx , ${$profiledefaults}->{'profiles'};
- for my $p (@prof) {
-  print {*STDOUT} "profile available $p\n" or crok $ERRNO;
- }
+ map {
+  print {*STDOUT} "profile available $_\n" or crok $ERRNO;
+ } @prof;
 return ('show_profiles_done');
 }
 
@@ -233,9 +233,11 @@ for my $p (@prof) {
 }
 
 if ( $profileok eq 'true' ) {
-my $rc = \$traco->createvdrtranscodexml({dir=>$workdir,
+my $rc = \$traco->createxml({dir=>$workdir,
 					  debug=>$config->{'debug_createvdrtranscodexml'},
 					  profile=>$newprofile,
+					  xml=>$config->{'traco_xml'},
+					  ts=>$config->{'traco_ts'},
 					});
 print {*STDOUT} "create new xml file with profile $newprofile status_${$rc}\n" or croak $ERRNO;
 }
