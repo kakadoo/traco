@@ -226,11 +226,10 @@ local $SIG{CHLD} = 'IGNORE' ;
 # reset on every new main loop
 my @videolist = \$traco->getfilelist({dir=>$tracoenv->{'Indir'},
 					      skiplinks=>'true',
-					      debug=>$tracoenv->{'debug_getfilelist'},
+					      debug=>$tracoenv->{'debug'},
 					      fs => ${$tracoenv->{'infs'}},
 					      });
 #
-
 my @videoqueue = ();
 
 # check for traco.xml if exist and get status from this video
@@ -258,9 +257,11 @@ for my $v (@videolist) {
  		my $vdrfiles = \$traco->chkvdrfiles({dir=>$videopath,vdrversion=>$tracoenv->{'vdrversion'}, });
 
     if ( ${$vdrfiles}->{info} ne 'missing' ) {
+    
       my $createxmlrc = \$traco->createxml({dir=>$videopath, 
-							debug=>$tracoenv->{'debug_createvdrtranscodexml'},
+							debug=>$tracoenv->{'debug'},
 							profile=>$tracoenv->{'defaultprofile'},
+							profileHD=>$tracoenv->{'defaultHDprofile'},
 							xml=>$tracoenv->{'traco_xml'},
 							ts=>$tracoenv->{'traco_ts'},
 							});
@@ -346,8 +347,8 @@ foreach my $st (@videoqueue) {
       my $vdrfiles = \$traco->chkvdrfiles({dir=>$dir,vdrversion=>$tracoenv->{'vdrversion'},});
       if ( ${$vdrfiles}->{marks} ne 'missing' ) {
             my $tracotsrc=\$traco->combine_ts ({source=>$dir,
-					      target=>"$dir/$tracoenv->{traco_ts}",
-					      xml=>$tracoenv->{traco_xml},
+					      target=>$tracoenv->{traco_ts},
+					      xml=>$tracoenv->{'traco_xml'},
 							vdrversion=>$tracoenv->{'vdrversion'},
 							fpstype=>$tracoenv->{'fpstype'},
 							handbrake=>$tracoenv->{'hb_bin'},
@@ -396,7 +397,7 @@ foreach my $st (@videoqueue) {
       my $vdrfiles = \$traco->chkvdrfiles({dir=>$dir,vdrversion=>$tracoenv->{'vdrversion'},});
       if ( ${$vdrfiles}->{marks} ne 'missing' ) {
       my $cutrc=\$traco->combine_ts ({source=>$dir,
-					      target=>"$dir/$tracoenv->{'traco_ts'}",
+					      target=>$tracoenv->{'traco_ts'},
 					      xml=>$tracoenv->{'traco_xml'},
 					      debug=>$tracoenv->{'debug_flag'},
 					      vdrversion=>$tracoenv->{'vdrversion'},
