@@ -313,7 +313,7 @@ undef @double;
 my @flist =\$self->_get_files_in_dir({dir=>${$searchpath},debug=>${$debug},});
 
 
-map {
+for ( @flist ) {
   my $file  = ${$_};
   my $dir = dirname $file;
   # skip directory are marked as delete by vdr
@@ -327,7 +327,7 @@ map {
   if ( ( -e $file ) and ( $file =~ /($pattern)/smx ) and ( ! grep { /$file/smx } @dirlist ) ) {
   		push @dirlist,$file; 
   } 
-} @flist;
+};
 
 
 #foreach my $f (@flist) {
