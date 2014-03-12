@@ -283,9 +283,9 @@ if ( -e "${$dir}/${$target}" ) { $writetype='>>:raw'; }
  
 $self->message ({msg=>"[_cutfile]cut in ${$dir} file ${$file} ( start = ${$start} / stop = ${$stop} )",debug=>${$dbg},}) ;
 #
-open my $TOFH, $writetype , "${$dir}/${$target}" or croak $self->message ({msg=>"[_cutfile] cannot open ${$dir}/${$target} for writing ... $ERRNO",}) ;
+open my $TOFH, $writetype , "${$dir}/${$target}" or carp $self->message ({msg=>"[_cutfile] cannot open ${$dir}/${$target} for writing ... $ERRNO",}) ;
 
-open my $FH , '<:raw', ${$file} or croak $self->message ({msg=>"[_cutfile] can't open ${$file} ... $ERRNO",}) ;
+open my $FH , '<:raw', ${$file} or carp $self->message ({msg=>"[_cutfile] can't open ${$file} ... $ERRNO",}) ;
        seek $FH,${$start},0;
        while ($cont = read $FH, $buffer, BUFFERSIZE ) {
         my $readpos = tell $FH;
@@ -298,14 +298,14 @@ open my $FH , '<:raw', ${$file} or croak $self->message ({msg=>"[_cutfile] can't
 	  my $newbufsize = bytes::length $newbuffer;
 	  no bytes;
 	  $self->message({msg=>"[_cutfile]write last $newbufsize bytes",debug=>${$dbg},});
-          print {$TOFH} $newbuffer or croak "[_cutfile]can't write to ${$dir}/${$target} $ERRNO";
+          print {$TOFH} $newbuffer or carp "[_cutfile]can't write to ${$dir}/${$target} $ERRNO";
 	  last ;
 	} else {
-	  print {$TOFH} $buffer or croak "[_cutfile]can't write to ${$dir}/${$target} $ERRNO";
+	  print {$TOFH} $buffer or carp "[_cutfile]can't write to ${$dir}/${$target} $ERRNO";
 	}
       }
- close $FH or croak $self->message({msg=>"[_cutfile]can´t close ${$file} $ERRNO",});
- close $TOFH or croak $self->message({msg=>"[_cutfile]can´t close ${$dir}/${$target} $ERRNO",}) ;
+ close $FH or carp $self->message({msg=>"[_cutfile]can´t close ${$file} $ERRNO",});
+ close $TOFH or carp $self->message({msg=>"[_cutfile]can´t close ${$dir}/${$target} $ERRNO",}) ;
  $self->message ({msg=>"[_cutfile]cut file ${$file} proccessed",debug=>${$dbg},}) ;
 return ('_cutfile_done');
 }
@@ -362,10 +362,10 @@ my $frame = \$args->{'frame'};
 my $index = \$args->{'index'};
 my $buffer = q{};
 
-open my $INDEX, '<:raw', ${$index} or croak $self->message({msg=>"Couldn't open ${$index} $ERRNO"});
+open my $INDEX, '<:raw', ${$index} or carp $self->message({msg=>"Couldn't open ${$index} $ERRNO"});
   seek $INDEX, ${$frame} ,'0' ;
   read $INDEX, $buffer, ACHT;
-close $INDEX or croak $self->message({msg=>"Couldn't close ${$index} $ERRNO"});
+close $INDEX or carp $self->message({msg=>"Couldn't close ${$index} $ERRNO"});
 
 return ($buffer);
 }
@@ -399,13 +399,13 @@ for ( @infiles ) {
    if ( $_ eq q{} ) { next ;};
 	if ( -e "${$dir}/${$destfile}" ) { $opentype = '>>:raw' ; }
     $self->message ({msg=>"[joinfiles]proccess ${$dir}/$_",debug=>${$dbg},});
-    open $fh_out, $opentype , "${$dir}/${$destfile}" or croak "[_JOINFILES]can't open destination ${$dir}/${$destfile} $ERRNO";
-    open my $fh_in, '<:raw', "${$dir}/$_" or croak "[_JOINFILES]can't open ${$dir}/$_ $ERRNO";
+    open $fh_out, $opentype , "${$dir}/${$destfile}" or carp "[_JOINFILES]can't open destination ${$dir}/${$destfile} $ERRNO";
+    open my $fh_in, '<:raw', "${$dir}/$_" or carp "[_JOINFILES]can't open ${$dir}/$_ $ERRNO";
     while ($copied = read $fh_in, $buffer, BUFFERSIZE) {
-        print {$fh_out} $buffer or croak "[_JOINFILES]can't write to ${$dir}/${$destfile} $ERRNO";
+        print {$fh_out} $buffer or carp "[_JOINFILES]can't write to ${$dir}/${$destfile} $ERRNO";
     }
-    close $fh_in or croak $ERRNO;
-    close $fh_out or croak $ERRNO;
+    close $fh_in or carp $ERRNO;
+    close $fh_out or carp $ERRNO;
 };
 
 
@@ -423,29 +423,29 @@ my $options = '>';
 if (${$o}) {
   $options = ${$o};
 }
-open my $WRITE , $options , ${$file} or croak "can't open ${$file} for writefile $ERRNO";
-    flock $WRITE, LOCK_EX or croak "can't lock ${$file} for writefile $ERRNO";
+open my $WRITE , $options , ${$file} or carp "can't open ${$file} for writefile $ERRNO";
+    flock $WRITE, LOCK_EX or carp "can't lock ${$file} for writefile $ERRNO";
     
     map {
     	if ( $CA[DREI] !~ /writelog$/smx ) {
-      	print {$WRITE} "$_\n" or croak "can't write to ${$file} for writefile $ERRNO";
+      	print {$WRITE} "$_\n" or carp "can't write to ${$file} for writefile $ERRNO";
       } else {
-        	print {$WRITE} $_ or croak "can't write to ${$file} for writefile $ERRNO";
+        	print {$WRITE} $_ or carp "can't write to ${$file} for writefile $ERRNO";
       }
     } @content;
     
     
 #    foreach my $l (@content) {
 #    	if ( $CA[DREI] !~ /writelog$/smx ) {
-#      	print {$WRITE} "$l\n" or croak "can't write to ${$file} for writefile $ERRNO";
+#      	print {$WRITE} "$l\n" or carp "can't write to ${$file} for writefile $ERRNO";
 #      } else {
-#        	print {$WRITE} $l or croak "can't write to ${$file} for writefile $ERRNO";
+#        	print {$WRITE} $l or carp "can't write to ${$file} for writefile $ERRNO";
 #      }
 #    }
     
     
-    flock $WRITE, LOCK_UN or croak "can't close ${$file} for writefile $ERRNO";
-close $WRITE or croak $ERRNO;
+    flock $WRITE, LOCK_UN or carp "can't close ${$file} for writefile $ERRNO";
+close $WRITE or carp $ERRNO;
 return ('writedone');
 }
 
@@ -463,12 +463,12 @@ my $rc = { returncode=>'readfile_done' };
 
 if ( not ( -e ${$file} ) ) { $rc->{'returncode'} = 'readfile_filenotfound'; return ($rc) }
 
-open my $FH , '<', ${$file} or croak "can't open ${$file} for readfile $ERRNO";
+open my $FH , '<', ${$file} or carp "can't open ${$file} for readfile $ERRNO";
   while (<$FH>) {
     chomp;
     push @content,$_;
   }
-close $FH or croak $ERRNO;
+close $FH or carp $ERRNO;
 $rc->{'returndata'} = \@content;
 
 return ($rc);
