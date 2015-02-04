@@ -8,6 +8,7 @@ use warnings;
 use English '-no_match_vars';
 use Carp;
 use feature qw/switch/;
+no if $] >= 5.018, warnings => "experimental";
 require Exporter;
 use vars qw($VERSION @ISA @EXPORT_OK);
 use base qw(Exporter);
