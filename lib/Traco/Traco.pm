@@ -16,6 +16,7 @@ use Carp;
 
 use IPC::Open3 'open3';
 use feature qw/switch/;
+no if $] >= 5.018, warnings => "experimental";
 use File::Find;
 use Sys::Hostname;
 use File::Basename;
