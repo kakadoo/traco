@@ -15,17 +15,17 @@ use warnings;
 use Carp;
 use English '-no_match_vars';
 use Fcntl qw(:flock) ;
-use Proc::Daemon 0.11;
-#use File::Copy ;
-use File::Basename ;
-#use Cwd;
 use lib 'lib/';
+use Proc::Daemon 0.15;
+use File::Basename ;
 use Traco::Traco 0.24;
 use Traco::Config ;
 use Data::Dumper ;
 
 # now feature from 5.10
 use feature qw/switch/;
+no if $] >= 5.018, warnings => 'experimental';
+
 
 our $VERSION = '0.23';
 
@@ -36,25 +36,10 @@ use constant { FUENF => 5 };
 my $tracoenv = Traco::Config->new();
 
 my $videostatus = {};
-#$tracoenv->{'configfile'} = '/etc/vdr/traco.conf' ;
-#$tracoenv->{'daemon_flag'} = '1';
-#$tracoenv->{'debug_flag'} = '0';
-#$tracoenv->{'interval'} = FUENF ;
-#$tracoenv->{'pidfile'} = '/var/run/vdr/tracosrv.pid';
-#$tracoenv->{'setcpu'} = q{};
-#$tracoenv->{'fpstype'} = 'vdr';
-#$tracoenv->{'traco_ts'} = 'vdrtranscode.ts';
-#$tracoenv->{'traco_xml'} = 'vdrtranscode.xml';
-#$tracoenv->{'traco_lck'} = 'vdrtranscode.lck';
-# set default profile 
-#$tracoenv->{'defaultprofile'} = 'SD';
-# nice default
-#$tracoenv->{'nice'} = '20';
 my $z=0;
-#my $homedir = getcwd();
-
 my $daemon = Proc::Daemon->new();
 my $mainpid = q{};
+
 
 # end declarations
 
@@ -99,18 +84,10 @@ $traco->setup({daemon=>$tracoenv->{'daemon_flag'},verboselevel=>$tracoenv->{'ver
 $traco->message ({msg=>"use configfile $tracoenv->{'configfile'}",v=>'v',});
 
 
-# override default profile from config
-#if ($tracoenv->{'defaultprofile'} ) {
-#  $tracoenv->{'defaultprofile'} = $tracoenv->{'defaultprofile'};
-#}
-# override default fpstype from config
-#if ($tracoenv->{'fpstype'} ) {
-#  $tracoenv->{'fpstype'} = $tracoenv->{'fpstype'};
-#}
-
 # get vdr user 
 if ( $tracoenv->{'vdr_user'} ) {
-  $tracoenv->{'vdruid'} = getpwnam $tracoenv->{'vdr_user'};
+
+  ( undef,undef,$tracoenv->{'vdruid'} , $tracoenv->{'vdrgid'} ) = getpwnam $tracoenv->{'vdr_user'};
 } else {
   $traco->message({msg=>'missing vdr_user in config',}) ;
   exit 1;
@@ -139,12 +116,8 @@ $tracoenv->{'infs'} = \$traco->getfilesystem({dir => $tracoenv->{'Indir'} });
 #$tracoenv->{'outfs'} = \$traco->getfilesystem({dir => $tracoenv->{'Outdir'} });
 
 
+$traco->message ({msg=>"debug infs ${$tracoenv->{'infs'}}",v=>'vvv'},);
 $traco->message ({msg=>"debug $tracoenv->{'debug_flag'}",v=>'vvv'},);
-
-# overwrite nice default 
-#if ( $tracoenv->{'nice_level'} ) {
-#  $tracoenv->{'nice'} = $tracoenv->{'nice_level'};
-#}
 $traco->message ({msg=>"nice $tracoenv->{'nice'}",v=>'vvv',});
 
 # find binarys 
@@ -163,30 +136,27 @@ if ( ${$runexternal}->{'exitcode'} != 0 ) {
 
 # end find binarys ##################
 
-# vdr version 
-#$tracoenv->{'vdrversion'} = '1.7';
-#if ( defined $tracoenv->{'vdrversion'} ) {
-#	$tracoenv->{'vdrversion'} = $tracoenv->{'vdrversion'};
-#}
-
 $traco->message({msg=>"vdr version $tracoenv->{'vdrversion'}",v=>'v',}) ;
 
 
 if ( $tracoenv->{'setcpu'} ) {
   my $setcpu = \$traco->setcpuoptions({config=>$tracoenv->{'setcpu'},debug=>$tracoenv->{'debug_setcpuoptions'},maxcpu=>$tracoenv->{'maxcpu'},});
   $tracoenv->{'setcpu'} = ${$setcpu};
-  $traco->message ({msg=>"handbrake use as cpu option $tracoenv->{'setcpu'}",v=>'v',});
 }
+$traco->message ({msg=>"handbrake use as cpu option $tracoenv->{'setcpu'}",v=>'v',});
 
 ########## end config defaults
 if ( $tracoenv->{'daemon_flag'} == 1) {
   is_running ();
+	if ( $tracoenv->{'vdruid'} ) {
+    		$EUID = $tracoenv->{'vdruid'};
+    		$UID = $tracoenv->{'vdruid'};
+    		$EGID = $tracoenv->{'vdrgid'};
+    		$GID = $tracoenv->{'vdrgid'};
+   	}
   $daemon = Proc::Daemon->new ( pid_file => $tracoenv->{'pidfile'} );
-  $mainpid = $daemon->Init ({ work_dir => $tracoenv->{'indir'} });
-  	if ( $tracoenv->{'vdruid'} ) {
-    $EUID = $tracoenv->{'vdruid'};
-    $UID = $tracoenv->{'vdruid'};
-   }
+  $mainpid = $daemon->Init ({ work_dir => $tracoenv->{'indir'} , setuid => $tracoenv-> {'vdruid'} , setgid => $tracoenv->{'vdrgid'}  });
+ 	
   if ( not ( $mainpid  ) ) {
     $traco->message ({msg=>"fork to the background pid $PID with EUID = $EUID",});
     while (1) {
@@ -196,8 +166,6 @@ if ( $tracoenv->{'daemon_flag'} == 1) {
   }
 } else {
   $traco->message ({msg=>'no fork to the background',});
-  #$EUID = $tracoenv->{'vdruid'};
-  #$UID = $tracoenv->{'vdruid'};
     while (1) {
       runmain ();
       sleep $tracoenv->{'interval'};
