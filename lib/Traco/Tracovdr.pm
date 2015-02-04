@@ -9,7 +9,8 @@ use English '-no_match_vars';
 use Carp;
 
 use feature qw/switch/;
-use Data::Dumper;
+no if $] >= 5.018, warnings => "experimental";
+#use Data::Dumper;
 use IO::Socket::INET;
 
 #use lib 'lib/';
@@ -252,11 +253,19 @@ map {
     }
     when ( /^S\s/smx ) {
       my (undef,$epi) = split /^[S]\s/smx ,$_;
-      while ( $epi =~ /\s/smx ) {
- 			$epi =~ s/\s/_/smx ;
- 		}
+      #while ( $epi =~ /\s/smx ) {
+ 		#	$epi =~ s/\s/_/smx ;
+ 		#}
+ 		
  		$rcdb->{'episode'} = $epi;
  	}
+    when ( /^D\s/smx ) {
+      my (undef,$desc) = split /^[D]\s/smx ,$_;
+      #while ( $desc =~ /\s/smx ) {
+ 		#	$desc =~ s/\s/_/smx ;
+ 		#}
+ 		$rcdb->{'description'} = $desc;
+ 	 } 	
 	 when ( /^X\s[1]\s[0](?:[1]|[5])\s/smx ) {
       $rcdb->{'aspect'} = '4:3';
       $rcdb->{'HD'} = q{} ;
