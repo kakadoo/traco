@@ -8,6 +8,7 @@ use English '-no_match_vars';
 use Carp;
 use IPC::Open3 'open3';
 use feature qw/switch/;
+no if $] >= 5.018, warnings => "experimental";
 use File::Basename;
 use Data::Dumper;
 use constant {SECHSNULLNULL => '600', NEUN => '9',};
