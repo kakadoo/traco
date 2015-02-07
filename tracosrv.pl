@@ -16,7 +16,7 @@ use Carp;
 use English '-no_match_vars';
 use Fcntl qw(:flock) ;
 use lib 'lib/';
-use Proc::Daemon 0.15;
+use Proc::Daemon 0.14;
 use File::Basename ;
 use Traco::Traco 0.24;
 use Traco::Config ;
@@ -151,14 +151,14 @@ if ( $tracoenv->{'daemon_flag'} == 1) {
 	if ( $tracoenv->{'vdruid'} ) {
     		$EUID = $tracoenv->{'vdruid'};
     		$UID = $tracoenv->{'vdruid'};
-    		$EGID = $tracoenv->{'vdrgid'};
-    		$GID = $tracoenv->{'vdrgid'};
    	}
   $daemon = Proc::Daemon->new ( pid_file => $tracoenv->{'pidfile'} );
-  $mainpid = $daemon->Init ({ work_dir => $tracoenv->{'indir'} , setuid => $tracoenv-> {'vdruid'} , setgid => $tracoenv->{'vdrgid'}  });
+  $mainpid = $daemon->Init ({ work_dir => $tracoenv->{'indir'} });
  	
   if ( not ( $mainpid  ) ) {
     $traco->message ({msg=>"fork to the background pid $PID with EUID = $EUID",});
+    $EGID = $tracoenv->{'vdrgid'};
+    $GID = $tracoenv->{'vdrgid'};
     while (1) {
       runmain ();
       sleep $tracoenv->{'interval'};
