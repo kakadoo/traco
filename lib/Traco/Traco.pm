@@ -47,8 +47,6 @@ use base qw(Exporter Traco::Tracoio
 							Traco::Tracorenamefile
 							Traco::Tracovdr
 							);
-#						parseconfig 
-#						_parse_config_value
 
 @EXPORT_OK = qw(prepare_traco_ts 
 						recalculate_video_bitrate 
