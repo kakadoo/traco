@@ -97,12 +97,10 @@ my ($self,$args) = @_;
 my $dir = \$args->{'dir'};
 my $dbg = \$args->{'debug'};
 
-my @mountlist = qx(mount) ;
-my @mountpoint = grep { /(${$dir})/smx } @mountlist;
+my @mount = qx(df -T ${$dir} ) ;
+#print Dumper @mount;
 
-#print Dumper $mountpoint[0];
-
-my (undef,undef,undef,undef,$myfs,undef) = split /\s/smx , $mountpoint[0];
+my (undef,$myfs,undef,undef,undef,undef,undef) = split /(?:\s|\t)+/smx , $mount[1];
 #print Dumper $myfs;
 return $myfs;
 }
