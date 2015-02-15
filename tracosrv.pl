@@ -16,7 +16,7 @@ use Carp;
 use English '-no_match_vars';
 use Fcntl qw(:flock) ;
 use lib 'lib/';
-use Proc::Daemon 0.14;
+use Proc::Daemon 0.11;
 use File::Basename ;
 use Traco::Traco 0.24;
 use Traco::Config ;
@@ -149,6 +149,10 @@ $traco->message ({msg=>"handbrake use as cpu option $tracoenv->{'setcpu'}",v=>'v
 if ( $tracoenv->{'daemon_flag'} == 1) {
   is_running ();
 	if ( $tracoenv->{'vdruid'} ) {
+		# gid must be set befor change of uid
+		$GID = $tracoenv->{'vdrgid'};
+    		$EGID = $tracoenv->{'vdrgid'};
+
     		$EUID = $tracoenv->{'vdruid'};
     		$UID = $tracoenv->{'vdruid'};
    	}
@@ -157,8 +161,6 @@ if ( $tracoenv->{'daemon_flag'} == 1) {
  	
   if ( not ( $mainpid  ) ) {
     $traco->message ({msg=>"fork to the background pid $PID with EUID = $EUID",});
-    $EGID = $tracoenv->{'vdrgid'};
-    $GID = $tracoenv->{'vdrgid'};
     while (1) {
       runmain ();
       sleep $tracoenv->{'interval'};
