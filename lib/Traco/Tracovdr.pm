@@ -10,7 +10,7 @@ use Carp;
 
 use feature qw/switch/;
 no if $] >= 5.018, warnings => "experimental";
-#use Data::Dumper;
+use Data::Dumper;
 use IO::Socket::INET;
 
 #use lib 'lib/';
@@ -22,9 +22,9 @@ require Exporter;
 use vars qw($VERSION @ISA @EXPORT_OK);
 use base qw(Exporter);
 
-@EXPORT_OK = qw(chkvdrversion parsevdrmarks parsevdrinfo chkvdrfiles bgprocess);
+@EXPORT_OK = qw(chkvdrversion parsevdrmarks parsevdrinfo chkvdrfiles bgprocess vdrcut);
 
-$VERSION = '0.24';
+$VERSION = '0.25';
 
 
 sub new {
@@ -35,9 +35,9 @@ sub new {
 	return $self;
 } # end sub new
 
+my $tcpsocket;
+
 # process bar
-
-
 sub bgprocess {
 my ( $self,$args ) = @_;
 my $line = \$args->{'line'};
@@ -47,8 +47,7 @@ my $svdrpsend_flags = \$args->{'svdrpsend_flags'};
 
 #print Dumper $args;
 
-my ($dsthost,$dstport,$timeout)  = ${$svdrpsend_flags} =~ m/^[-][d]\s(\d+\.\d+\.\d+\.\d+)\s[-][p]\s(\d+)\s[-][t]\s(\d+)$/smx ;
-my $svdrpsend = \&_svdrpsend;
+_svdrpsend ({ line=>'open', svdrpsend_flags => ${$svdrpsend_flags} });
 
 
 #Encoding: task 2 of 2, 18.56 % (24.64 fps, avg 31.18 fps, ETA 01h05m29s)
@@ -59,59 +58,130 @@ if (${$line} =~ /^Encoding\:/smx ) {
 	( $task,$progress ) = ${$line} =~ m/^Encoding\:\s(.*)\,\s(\d*.\d*)\s/smx ;
 	$progress = sprintf ('%.0f',$progress); 
 #	print "[bgprocess]_svdrpsend plug bgprocess process traco ${$starttime} $progress $task ${$videoname} -> $dsthost , $dstport , $timeout\n";
-	$st = $svdrpsend->({host=>$dsthost,port=>$dstport,timeout=>$timeout,line=>"plug bgprocess process traco ${$starttime} $progress $task ${$videoname}"});
+	$st = _svdrpsend->({line=>"plug bgprocess process traco ${$starttime} $progress $task ${$videoname}"});
 } else {
-	$st = $svdrpsend->({host=>$dsthost,port=>$dstport,timeout=>$timeout,line=>"plug bgprocess process traco ${$starttime} 101 task 2 of 2 ${$videoname}"});
+	$st = _svdrpsend->({line=>"plug bgprocess process traco ${$starttime} 101 task 2 of 2 ${$videoname}"});
 }
 
+_svdrpsend ({ line=>'close' });
 
 return $st;
 }
 
+#hgl
 sub _svdrpsend {
 my $args = shift;
 my $line = \$args->{'line'};
-my $host = \$args->{'host'};
-my $port = \$args->{'port'};
-my $timeout = \$args->{'timeout'};
-my $ti = ${$timeout} || '10';
-my $response ;
+my @response ;
+my $svdrpsend_flags = \$args->{'svdrpsend_flags'};
 
-#print Dumper $args;
 
-my $tcpsocket = new IO::Socket::INET (
-                                  PeerAddr => ${$host},
-                                  PeerPort => ${$port},
+
+print {*STDOUT} "[_svdrpsend]send command to VDR ${$line}\n";  
+
+
+if ( ${$line} =~ /^close$/smx ) {
+	_svdrpsend_close ();
+	return  ;
+}
+
+if ( ${$line} =~ /^open$/smx ) {
+	my ($vdrhost,$vdrport,$timeout)  = ${$svdrpsend_flags} =~ m/^[-][d]\s(\d+\.\d+\.\d+\.\d+)\s[-][p]\s(\d+)\s[-][t]\s(\d+)$/smx ;
+	if ( not defined $timeout ) { $timeout = '10'; }
+	
+	print {*STDOUT} "[_svdrpsend]open tcp socket\n";
+		$tcpsocket = new IO::Socket::INET (
+                                  PeerAddr => $vdrhost,
+                                  PeerPort => $vdrport,
+				  ReuseAddr => '1',
+				  ReusePort => '1',
                                   Proto => 'tcp',
-                                  Timeout => $ti,
+                                  Timeout => $timeout,
                                   Blocking => '1',
                                  ) or croak "[_svdrpsend]Could not create socket: $ERRNO\n" ;
 
-#print <$tcpsocket> . "\n";
+	if ( <$tcpsocket> =~ /^220/smx ) {
+		print {*STDOUT} "[_svdrpsend]Connect to VDR $vdrhost Successful\n";  
+	} else {
+		print {*STDOUT} Dumper <$tcpsocket>;
+	}	
+}
 
-if ( <$tcpsocket> =~ /^220/smx ) {
-#	print "Connect to VDR ${$host} Successful\n";
+
+
 	print $tcpsocket "${$line}\n" ;
-	$response = <$tcpsocket>;
+
+	while ( <$tcpsocket> ) {
+		push @response,$_ ;
+		if  ( substr ($_, 3, 1) ne '-') {last ; }
+	} 
+
+return \@response;
 }
 
-#print "[_svdrpsend] $response\n";
-	
-if ( $response  =~ /OK/smx ) {
-	print $tcpsocket "quit\n" ;
+sub _svdrpsend_close {
+	print $tcpsocket "QUIT\n" ;
 	close $tcpsocket or croak "[_svdrpsend] error $ERRNO\n";
-#	print "verbindung sollte nun geschlossen sein\n";
-} else {
-	print '[svdrpsend]' . <$tcpsocket> . "\n";
-	print $tcpsocket "quit\n" ;
-	close $tcpsocket or croak "[_svdrpsend] error $ERRNO\n";
-#	print "verbindung ,mit fehler, sollte nun geschlossen sein\n";
-	return '_svdrpsend_error';
-}
-undef $response;
-return '_svdrpsend_done';
+	$tcpsocket->shutdown('NOW') ;
+return ;
 }
 
+sub vdrcut {
+my ( $self,$args ) = @_;
+#print Dumper $args;
+my $dir = \$args->{'dir'};
+my $xml = \$args->{'xml'};
+my $dbg = \$args->{'debug'};
+my $svdrpsend_flags = \$args->{'svdrpsend_flags'};
+
+${$dir} =~ s/\\//gsmx ;
+
+
+my $title = \$self->getfromxml ({ file => "${$dir}/${$xml}" , field => 'title' , debug => ${$dbg} });
+
+_svdrpsend ({ line => 'open' , svdrpsend_flags => ${$svdrpsend_flags} });
+ 
+my $idx = \ _get_vdr_record_index ( ${$title} );
+print {*STDOUT} "[vdrcut]send index no. ${$idx} for cut\n";
+#sleep 5;
+my $response = _svdrpsend ({line => "EDIT ${$idx}"  });
+#print Dumper $response;
+
+_svdrpsend ({line => 'close' });
+
+return  \$response;
+}
+
+
+sub _get_vdr_record_index {
+my $title = shift ;
+
+$title =~ s/[_]/ /gsmx;
+
+#print $title . ' ' . $vdrport . ' ' . $vdrhost . ' ' . " \n";
+my $lst = _svdrpsend ({line => 'lstr' });
+
+print $title . "\n";
+
+#my @match = map { $_ =~ s/\\//gsmx ; grep ( $title ),$_; } @ { $lst };
+
+my $idx;
+for my $m ( @ { $lst } ) {
+	$m =~  s/\\//gmsx ;
+print $m . "\n";
+
+	if ( $m =~ /$title/ ) { 
+		print "$m\n";
+		( $idx,undef,undef,undef,undef ) = split /\s/smx,$m ; 
+	}
+}
+$idx =~ s/^\d+[-]//gsmx ;
+
+#print Dumper $idx;
+return $idx;
+
+
+}
 
 # check if exists marks and info file 
 # 
