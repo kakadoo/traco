@@ -17,9 +17,9 @@ use Carp;
 use IPC::Open3 'open3';
 use feature qw/switch/;
 no if $] >= 5.018, warnings => "experimental";
-use File::Find;
+#use File::Find;
 use Sys::Hostname;
-use File::Basename;
+#use File::Basename;
 use Data::Dumper;
 use Fcntl ':flock';
 use Sys::Syslog qw/:DEFAULT setlogsock/;
@@ -41,36 +41,34 @@ use constant { EINSNULLNULLNULL => 1000,
 
 require Exporter;
 use vars qw($VERSION @ISA @EXPORT_OK);
-use base qw(Exporter Traco::Tracoio 
-							Traco::Tracoxml 
-							Traco::Tracoprofile 
-							Traco::Tracorenamefile
-							Traco::Tracovdr
-							);
+use base qw(Exporter 	Traco::Tracoio 
+			Traco::Tracoxml 
+			Traco::Tracoprofile 
+			Traco::Tracorenamefile
+			Traco::Tracovdr
+			);
 
-@EXPORT_OK = qw(prepare_traco_ts 
-						recalculate_video_bitrate 
-						setup 
-						findmyfile 
-						_filelist 
-						_preparedtime
-						removelockfile 
-						writelockfile 
-						readlockfile 
-						_runexternal 
-						preparepath 
-						message
-						setcpuoptions
-						run_handbrake
-						prepare_crop 
-						buildrunline _
-						handbrakeanalyse_cas 
-						gettotalframes
-						prepshellpath
-						getfilesystem
-						);
+@EXPORT_OK = qw(	prepare_traco_ts 
+			recalculate_video_bitrate 
+			setup 
+			preparedtime
+			removelockfile 
+			writelockfile 
+			readlockfile 
+			_runexternal 
+			preparepath 
+			message
+			setcpuoptions
+			run_handbrake
+			prepare_crop 
+			buildrunline
+			handbrakeanalyse_cas 
+			gettotalframes
+			prepshellpath
+			getfilesystem
+		);
 
-$VERSION = '0.25';
+$VERSION = '0.26';
 
 #
 # 0.01 inital version
@@ -89,7 +87,6 @@ sub new {
 	bless $self,$class;
 	return $self;
 } # end sub new
-my @dirlist = ();
 
 
 sub getfilesystem {
@@ -200,7 +197,7 @@ my $dbg = \$args->{'debug'};
 my $wrlog = \$args->{'writelog'};
 if ( not ( ${$execline} ) ) { return ('noexeclineforhb'); }
 
-my $time_start = \$self->_preparedtime({timeformat=>0,});
+my $time_start = \$self->preparedtime({timeformat=>0,});
 
   $self->message({msg=>"JOB START -- ${$time_start}",}) ;
   my $jobresult = \$self->_runexternal({line=>${$execline},debug=>${$dbg},writelog=>${$wrlog},});
@@ -213,7 +210,7 @@ my $time_start = \$self->_preparedtime({timeformat=>0,});
 #    $self->message({msg=>"[jobresult]$l",v=>'vvv'});
 #  }
 
-  my $time_end = \$self->_preparedtime({timeformat=>0,});
+  my $time_end = \$self->preparedtime({timeformat=>0,});
   $self->message({msg=>"JOB STOP -- ${$time_end}",}) ;
 undef $time_end;
 undef $time_start;
@@ -242,7 +239,7 @@ if (${$vl}) {
 
 return ();
 }
-sub _preparedtime {
+sub preparedtime {
 my ($self,$args) = @_;
 my $tif = \$args->{'timeformat'};
 my $ti =q{};
@@ -277,116 +274,6 @@ given ($tiformat) {
   return ($ti);
 } # end sub preparetime
 
-sub getfilelist {
-my ($self,$args) = @_;
-my $searchpath = \$args->{'dir'};
-my $debug = \$args->{'debug'};
-my $p = \$args->{'pattern'};
-my $skiplinks = \$args->{'skiplinks'};
-my $pattern = '(?:(?:[.](?:ts|vdr|xml|lck))|info|index|marks|resume)';
-my $fs = \$args->{'fs'};
-
-
-if ( ${$p} ) {
-  $pattern = ${$p} ;
-}
-
-my @CA = caller 1;
-
-if ( ($CA[DREI] ) and ( $CA[DREI] ne 'Traco::Traco::getfilelist') ) {
-  $self->message({ msg=>'Traco.pm|getfilelist',v=>'vvvvv',});
-  @dirlist = ();
-}
-
-$self->message({ msg=>"Traco.pm|_getfilelist|search pattern = $pattern",debug=>${$debug},v=>'vvvvv',});
-
-if ( not ( -d ${$searchpath} ) ) { return ('getfilelist_pathnotfound'); }
-$self->message({ msg=>"Traco.pm|getfilelist|searchpath ${$searchpath} exist",debug=>${$debug},v=>'vvvvv',});
-
-my @double = grep { /\Q(${$searchpath})/smx } @dirlist ;
-if ( $#double >= 0 ) { next  ;};
-undef @double;
-
-my @flist =\$self->_get_files_in_dir({dir=>${$searchpath},debug=>${$debug},});
-
-
-for ( @flist ) {
-  my $file  = ${$_};
-  my $dir = dirname $file;
-  # skip directory are marked as delete by vdr
-  if ( $file =~ /[.]del$/smx ) { next ; }
-  # skip links if option set
-  if ( ( ${$fs} !~ /^cifs$/smx ) and ( ${$skiplinks} ) and ( -l $file ) ) { next ; }
-  if (-d $file ) {
-    $self->getfilelist ({dir=>$file,pattern=>$pattern,skiplinks=>${$skiplinks},debug=>${$debug},fs => ${$fs} , v=>'vvvvv',}) ;
-  }
-  # skip double entrys
-  if ( ( -e $file ) and ( $file =~ /($pattern)/smx ) and ( ! grep { /$file/smx } @dirlist ) ) {
-  		push @dirlist,$file; 
-  } 
-};
-
-
-#foreach my $f (@flist) {
-#  my $file  = ${$f};
-#  my $dir = dirname $file;
-#  # skip directory are marked as delete by vdr
-#  if ( $file =~ /[.]del$/smx ) { next ; }
-#  # skip links if option set
-#  if ( ${$skiplinks} ) { if ( -l $file ) { next ; } }
-# if (-d $file ) {
-#    $self->getfilelist ({dir=>$file,pattern=>$pattern,skiplinks=>${$skiplinks},debug=>${$debug},v=>'vvvvv',}) ;
-#  }
-#  # skip double entrys
-#  my @tmp = grep { /\Q$dir/smx } @dirlist;
-#
-#	if ( ( $#tmp < 0 )  and ( $file =~ /($pattern)/smx ) ) {
-#   	$self->message({ msg=>"Traco.pm|_getfilelist|add file $file to return hash \@dirlist",debug=>${$debug},v=>'vvvvv',});
-#    	push @dirlist,$file;
-#  	} else {
-#   	next;
-#	}
-#  undef @tmp;
-#}
-
-#print Dumper @dirlist;
-
-undef @CA;
-undef @flist;
-
-return (@dirlist);
-} # end sub
-
-sub findmyfile {
-my ($self,$args) = @_;
-my $searchpath = \$args->{'dir'};
-my $action = \$args->{'action'};
-my @CA = caller 1;
-if ( $CA[DREI] eq 'main::_runmain' ) {
-  @dirlist = ();
-}
-
-given (${$action}) {
-  when ( /^videolist$/smx ) {
-    find ( \&_filefindforvideolist, ${$searchpath} ) ;
-  }
-  #when ( /^handbrake$/smx ) {
-  #  $self->_filefindgzip({dir=>${$searchpath},}) ;
-  #}
-}
-return (@dirlist);
-} # end sub _getvideolist
-
-sub _filefindforvideolist {
-my $tmpfile = \$File::Find::name ; # make a referenz for save path if a symbolic links
-my $dirname = dirname  ${$tmpfile};
-my $filename = basename ${$tmpfile};
-my @tmp = grep { /\Q$dirname/smx } @dirlist;
-if ( ( $#tmp < 0) and  ($filename =~ /\d+[.](:?vdr|ts)/smx ) ) {
-  push @dirlist , ${$tmpfile} ;
-}
-return ();
-}
 
 sub writelockfile  {
 my ($self,$args) = @_;
@@ -954,8 +841,10 @@ return ();
 }
 sub _runexternal {
 my ($self,$args) = @_;
+
+if ( not $args->{'line'} ) { return ('no_exec_line_exists_for_runexternal') };
 my $dbg = \$args->{'debug'}  ;
-my $l=\$args->{'line'} ;
+my $li=\$args->{'line'} ;
 my $wlog=\$args->{'writelog'};
 my ( $starttime,$videoname,$svdrpsend_flags ) = q{};
  
@@ -964,11 +853,12 @@ if ( $args->{'writelog'} ) {
 	$videoname = \$args->{'videoname'} ;
 	$svdrpsend_flags = \$args->{'svdrpsend_flags'};
 }
- 
-my $line = ${$l} ;
-if ( not ( $line ) ) { return ('no_exec_line_exists_for_runexternal')};
+c 
+my $line = ${$li} ;
 
-$self->message({msg=>"[_runexternal]exec | $line",v=>'vvv',debug=>${$dbg},});
+#if ( not ( $line ) ) { return ('no_exec_line_exists_for_runexternal')};
+
+$self->message({msg=>"[runexternal]exec | $line",v=>'vvv',debug=>${$dbg},});
 
 my $returnline = {};
 
@@ -979,20 +869,20 @@ my $childpid = open3(\*CHLD_IN,\*CHLD_OUT, \*CHLD_ERR, $line);
   use Symbol 'gensym'; #$err = gensym;
 #  if ( ${$dbg} ) {
     while (<CHLD_OUT>) {
-    	$_ =~ s/\x0D//g ; # remove ^M
+    	$_ =~ s/\x0D//gsmx ; # remove ^M
       if ( ${$dbg} ) { $self->message({msg=>"[_runexternal]$_",debug=>${$dbg},v=>'vvvvvvv',}); }
       
       if ( ${$wlog} ) {
          if ( $_ =~ qr/^Encoding\:/smx ) {
                 my ( $l, undef ) = split qr/(?:\)|[%])(?:E|\[)/smx ,$_ ; 
-                $l =~ s/\(//smx ;
-	         	$self->bgprocess({line=>$l,starttime=>${$starttime},videoname=>${$videoname},svdrpsend_flags=>${$svdrpsend_flags},});
-   				undef $l;      	
+                $l =~ s/\(//gsmx ;
+	        $self->bgprocess({line=>$l,starttime=>${$starttime},videoname=>${$videoname},svdrpsend_flags=>${$svdrpsend_flags},});
+   		undef $l;      	
          }
          if ( $_ =~ /^Encode\sdone[!]$/smx ) {
          	   $self->bgprocess({line=>'Encode done!',starttime=>${$starttime},videoname=>${$videoname},svdrpsend_flags=>${$svdrpsend_flags},});
          }
-			$self->_writelog({line=>$_,file=>${$wlog},});
+		$self->_writelog({line=>$_,file=>${$wlog},});
       };
       push @response,$_;
       };
