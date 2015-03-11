@@ -20,7 +20,7 @@ use constant {BUFFERSIZE => 32_768, ACHT => 8, DREIZWEI => 32, DREI => 3};
 require Exporter;
 use vars qw($VERSION @ISA @EXPORT_OK);
 use base qw(Exporter);
-@EXPORT_OK = qw(combine_ts readfile writefile _get_files_in_dir _cutfile _getfps);
+@EXPORT_OK = qw(combine_ts readfile writefile getfilelist _cutfile _getfps);
 
 $VERSION = '0.18';
 
@@ -38,6 +38,69 @@ sub new {
 	bless $self,$class;
 	return $self;
 } # end sub new
+#
+my @dirlist ;
+#
+
+sub getfilelist {
+my ($self,$args) = @_;
+my $searchpath = \$args->{'dir'};
+my $debug = \$args->{'debug'};
+my $p = \$args->{'pattern'};
+my $skiplinks = \$args->{'skiplinks'};
+my $pattern = '(?:(?:[.](?:ts|vdr|xml|lck))|info|index|marks|resume)';
+my $fs = \$args->{'fs'};
+
+
+if ( ${$p} ) {
+  $pattern = ${$p} ;
+}
+
+my @CA = caller 1;
+
+if ( ($CA[DREI] ) and ( $CA[DREI] ne 'Traco::Tracoio::getfilelist') ) {
+  $self->message({ msg=>'Tracoio.pm|getfilelist',v=>'vvvvv',});
+  @dirlist = ();
+}
+
+$self->message({ msg=>"Tracoio.pm|getfilelist|search pattern = $pattern",debug=>${$debug},v=>'vvvvv',});
+
+if ( not ( -d ${$searchpath} ) ) { return ('getfilelist_pathnotfound'); }
+$self->message({ msg=>"Tracoio.pm|getfilelist|searchpath ${$searchpath} exist",debug=>${$debug},v=>'vvvvv',});
+
+#my @double = grep { /\Q(${$searchpath})/smx } @dirlist ;
+#if ( $#double >= 0 ) { next  ;};
+#undef @double;
+
+my $flist = _get_files_in_dir({dir=>${$searchpath},debug=>${$debug},});
+
+
+for ( @ { $flist } ) {
+  my $file  = $_;
+  my $dir = dirname $file;
+  if ( $file =~ /($pattern)/smx ) { next ; }
+  if ( -d $file ) {
+    $self->getfilelist ({dir=>$file,pattern=>$pattern,skiplinks=>${$skiplinks},debug=>${$debug},fs => ${$fs} , v=>'vvvvv',}) ;
+  }
+
+  # skip directory are marked as delete by vdr
+  # or lck files
+  if ( $file =~ /[.]del$/smx ) { next ; }
+  # skip links if option set
+  if ( ( ${$fs} !~ /^cifs$/smx ) and ( ${$skiplinks} ) and ( -l $file ) ) { next ; }
+  # skip double entrys
+  if ( grep { /$file/smx } @dirlist ) { next ; }
+
+  if ( -e $file ){
+        push @dirlist,$file;
+  }
+};
+
+undef @CA;
+undef $flist;
+
+return (@dirlist);
+} # end sub
 
 sub _getfps {
 my ($self,$args) = @_;
@@ -225,7 +288,7 @@ if (${$rc} eq '_cutfile_done') { $a++ ; }
 return ('combine_ts_done')
 }
 sub _get_files_in_dir {
-my ( $self,$args ) = @_;
+my $args = shift;
 my $dir = \$args->{'dir'};
 my $p = \$args->{'pattern'};
 my $pattern = q{*};
@@ -237,7 +300,7 @@ foreach my $f (bsd_glob "${$dir}/$pattern") {
 }
 
 
-return (@files);
+return \@files;
 }
 
 sub _get_filename_by_cutfilenumber {
