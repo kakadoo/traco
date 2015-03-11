@@ -200,6 +200,7 @@ my @videolist = \$traco->getfilelist({dir=>$tracoenv->{'Indir'},
 					      fs => ${$tracoenv->{'infs'}},
 					      });
 #
+
 my @videoqueue = ();
 
 # check for traco.xml if exist and get status from this video
@@ -516,9 +517,6 @@ if ( ( not ( ${$profile}->{'crop'} ) ) or ( ${$profile}->{'crop'} !~ /^auto$/smx
   ${$profile}->{'crop'} = $traco->prepare_crop({crop=>${$hba}->{'autocrop'},});
 }
 
-#print Dumper $tracoenv;
-#print Dumper $profile;
-#print Dumper $hba;
 
 $traco->message({msg=>"container ${$profile}->{'container'}",verbose=>'v',});
 $traco->message({msg=>"name ${$profile}->{'name'}",verbose=>'v',});
@@ -599,7 +597,7 @@ if ( ${$profile}->{'quality'} !~ /^(?:rf|RF)[:]\d{1,2}$/smx ) {
 
 }
 
-my $time_start = \$traco->_preparedtime({timeformat=>4,});
+my $time_start = \$traco->preparedtime({timeformat=>4,});
 $traco->message({msg=>"JOB START -- ${$time_start}",}) ;
 
 
@@ -617,7 +615,7 @@ if ( $tracoenv->{'writelog'} ) {
  								debug=>$tracoenv->{'debug_flag'},});
 }
 
-	my $time_end = \$traco ->_preparedtime({timeformat=>0,});
+	my $time_end = \$traco ->preparedtime({timeformat=>0,});
 	$traco->message({msg=>"JOB STOP -- ${$time_end}",}) ;
 
 $time_start = undef;
