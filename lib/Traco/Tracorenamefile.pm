@@ -76,7 +76,7 @@ my $container = ${$vdrinfo}->{'container'};
 my $res = ${$vdrinfo}->{'resolution'};
 my $destinationfile = q{};
 
-my $tida = \$self->_preparedtime({timeformat=>3,});
+my $tida = \$self->preparedtime({timeformat=>3,});
 my ($mday,$mo,$year,$hour,$min,$sec) = split /\s/smx , ${$tida};
 
 
