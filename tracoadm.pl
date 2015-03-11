@@ -15,6 +15,7 @@ use Traco::Traco ;
 use Traco::Config ;
 # now feature from 5.10
 use feature qw/switch/;
+no if $] >= 5.018, warnings => 'experimental';
 #use Data::Dumper;
 
 our $VERSION = '0.06';
@@ -172,7 +173,7 @@ if ( $#configfileoption >= 0 ) {
       my $a = $o+1;
       $admenv->{'configfile'} = $opts[$a];
     }
-  } 
+  }
 }
 return ('handle_configfile_done');
 }
